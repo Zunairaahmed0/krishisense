@@ -1,0 +1,216 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+const app  = express();
+const PORT = process.env.PORT || 5000;
+
+// ── CORS ───────────────────────────────────────────────────────────────────────
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:4173",
+  process.env.FRONTEND_URL, // set this on Render to your Firebase Hosting URL
+].filter(Boolean);
+
+app.use(cors({
+  origin: (origin, cb) => {
+    // Allow requests with no origin (mobile apps, Postman, curl)
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: ${origin} not allowed`));
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
+app.use(express.json({ limit: "20mb" }));
+
+// ── Simple in-memory rate limiter (no extra package needed) ───────────────────
+// Allows 20 requests per minute per IP. Resets every 60s.
+const rateBuckets = new Map(); // IP → { count, resetAt }
+
+function rateLimit(max = 20, windowMs = 60_000) {
+  return (req, res, next) => {
+    const ip  = req.headers["x-forwarded-for"]?.split(",")[0].trim() || req.ip;
+    const now = Date.now();
+    let bucket = rateBuckets.get(ip);
+
+    if (!bucket || now > bucket.resetAt) {
+      bucket = { count: 0, resetAt: now + windowMs };
+      rateBuckets.set(ip, bucket);
+    }
+
+    bucket.count++;
+    if (bucket.count > max) {
+      const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+      res.set("Retry-After", retryAfter);
+      return res.status(429).json({
+        error: "Too many requests. Please wait a moment and try again.",
+        retryAfter,
+      });
+    }
+    next();
+  };
+}
+
+// Clean up old buckets every 5 minutes to prevent memory leak
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, b] of rateBuckets) {
+    if (now > b.resetAt) rateBuckets.delete(ip);
+  }
+}, 5 * 60_000);
+
+// ── Health check ───────────────────────────────────────────────────────────────
+app.get("/health", (req, res) => {
+  res.json({ status: "ok", service: "KrishiSense API", ts: new Date().toISOString() });
+});
+
+// ── Gemini AI proxy ────────────────────────────────────────────────────────────
+// Hides GEMINI_API_KEY from the browser bundle.
+// Accepts: POST /api/ai/chat  { content, system?, enableSearch? }
+// Returns: { text: "AI reply..." }
+
+const GEMINI_MODELS = [
+  "gemini-2.5-flash-lite",
+  "gemini-2.5-flash",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+];
+
+app.post("/api/ai/chat", rateLimit(20, 60_000), async (req, res) => {
+  const { content, system, enableSearch = false } = req.body;
+
+  if (!content) {
+    return res.status(400).json({ error: "content is required" });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: "Server missing GEMINI_API_KEY" });
+  }
+
+  // Build Gemini payload
+  const parts = typeof content === "string"
+    ? [{ text: content }]
+    : content; // allow pre-built parts array for image vision
+
+  const payload = { contents: [{ parts }] };
+
+  if (system) {
+    payload.systemInstruction = { parts: [{ text: system }] };
+  }
+  if (enableSearch) {
+    payload.tools = [{ google_search: {} }];
+  }
+
+  // Try each model in order, stop on first success
+  for (const model of GEMINI_MODELS) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const geminiRes = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(25_000),
+      });
+
+      if (!geminiRes.ok) {
+        const errText = await geminiRes.text();
+        console.warn(`[gemini] ${model} → ${geminiRes.status}: ${errText.slice(0, 120)}`);
+        continue;
+      }
+
+      const data = await geminiRes.json();
+      let text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+      // Strip markdown bold/italic (voice-safe output)
+      text = text.replace(/\*\*?/g, "").trim();
+
+      if (text) return res.json({ text, model });
+    } catch (err) {
+      console.warn(`[gemini] ${model} error:`, err.message);
+    }
+  }
+
+  res.status(502).json({ error: "All Gemini models failed. Please try again." });
+});
+
+// ── User profile update ────────────────────────────────────────────────────────
+// Lightweight endpoint; actual profile is stored in Firebase Firestore.
+// The frontend calls Firebase directly — this is a utility fallback.
+app.put("/api/auth/profile", rateLimit(10, 60_000), (req, res) => {
+  const { fullName, avatar } = req.body;
+  if (!fullName?.trim()) return res.status(400).json({ error: "fullName is required" });
+  // No-op: Firebase Firestore handles persistence via the frontend SDK.
+  res.json({ success: true, fullName: fullName.trim(), avatar: avatar || "👨‍🌾" });
+});
+
+// ── Legacy auth + scans (kept for backward compat, Firebase preferred) ─────────
+import { db } from "./lib/db.js";
+import { generateSalt, hashPassword, generateToken } from "./lib/crypto.js";
+
+function authenticate(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token) return res.status(401).json({ error: "No session token provided." });
+  const user = db.getUserByToken(token);
+  if (!user) return res.status(401).json({ error: "Session expired or invalid." });
+  req.user = user; req.token = token;
+  next();
+}
+
+app.post("/api/auth/register", rateLimit(5, 60_000), (req, res) => {
+  const { username, fullName, password } = req.body;
+  if (!username || !fullName || !password)
+    return res.status(400).json({ error: "username, fullName, and password are required." });
+  if (username.length < 3) return res.status(400).json({ error: "Username must be at least 3 characters." });
+  if (password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters." });
+  if (db.findUserByUsername(username))
+    return res.status(409).json({ error: "Username already registered." });
+  try {
+    const salt = generateSalt();
+    const profile = db.createUser(username, fullName, hashPassword(password, salt), salt);
+    const token = generateToken();
+    db.createSession(token, profile.id);
+    res.status(201).json({ user: profile, token });
+  } catch (e) {
+    res.status(500).json({ error: "Registration failed." });
+  }
+});
+
+app.post("/api/auth/login", rateLimit(10, 60_000), (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password)
+    return res.status(400).json({ error: "username and password are required." });
+  const user = db.findUserByUsername(username);
+  if (!user || hashPassword(password, user.salt) !== user.passwordHash)
+    return res.status(401).json({ error: "Invalid username or password." });
+  const token = generateToken();
+  db.createSession(token, user.id);
+  const { passwordHash: _, salt: __, ...profile } = user;
+  res.json({ user: profile, token });
+});
+
+app.get("/api/auth/me", authenticate, (req, res) => res.json({ user: req.user }));
+
+app.delete("/api/auth/logout", authenticate, (req, res) => {
+  db.deleteSession(req.token);
+  res.json({ success: true });
+});
+
+app.post("/api/scans", authenticate, (req, res) => {
+  const { type, data } = req.body;
+  if (!type || !data) return res.status(400).json({ error: "type and data are required." });
+  res.status(201).json(db.saveScan(req.user.id, type, data));
+});
+
+app.get("/api/scans", authenticate, (req, res) => {
+  res.json(db.getScansByUserId(req.user.id));
+});
+
+// ── Start ──────────────────────────────────────────────────────────────────────
+app.listen(PORT, () => {
+  console.log(`\n🌱 KrishiSense API running on http://localhost:${PORT}`);
+  console.log(`   Gemini key: ${process.env.GEMINI_API_KEY ? "✅ loaded" : "❌ MISSING — set GEMINI_API_KEY"}`);
+  console.log(`   Frontend:   ${process.env.FRONTEND_URL || "(dev: any origin allowed)"}\n`);
+});

@@ -1,0 +1,1 @@
+export const parseJSON=(raw)=>{try{const s=raw.indexOf("{");const e=raw.lastIndexOf("}")+1;return JSON.parse(raw.slice(s,e))}catch{return null}};

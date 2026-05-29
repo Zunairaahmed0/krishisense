@@ -1,0 +1,1 @@
+export const speak=(text,lang="en")=>{if(!window.speechSynthesis)return;window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text.slice(0,280));u.lang=lang==="hi"?"hi-IN":lang==="mr"?"mr-IN":"en-IN";u.rate=0.88;window.speechSynthesis.speak(u);};

@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+krishisense/node_modules/
+server/node_modules/
+
+# Build output
+krishisense/dist/
+krishisense/build/
+
+# Environment files — NEVER commit secrets
+.env
+krishisense/.env
+server/.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Vite
+krishisense/.vite/
+
+# Firebase (local cache only)
+.firebase/
+
+# Test / scratch files
+*.original.txt
+test_*.js
+print_user_requests.cjs
+krishisense/krishisense-sustain-final.png
