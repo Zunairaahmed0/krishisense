@@ -35,6 +35,10 @@ export const fetchMandiPrices = async ({
   const json = await res.json();
   if (!json.records?.length) throw new Error("No records returned");
 
+  // AGMARKNET returns prices in ₹/quintal (1 quintal = 100 kg)
+  // Convert to ₹/kg for display by dividing by 100
+  const toKg = (v) => Math.round(parseFloat(v || 0) / 100 * 100) / 100;
+
   const records = json.records
     .map(r => ({
       market:      r.market     || "",
@@ -42,9 +46,12 @@ export const fetchMandiPrices = async ({
       commodity:   r.commodity  || commodity,
       variety:     r.variety    || "Common",
       grade:       r.grade      || "FAQ",
-      minPrice:    parseFloat(r.min_price   || 0),
-      maxPrice:    parseFloat(r.max_price   || 0),
-      modalPrice:  parseFloat(r.modal_price || 0),
+      minPrice:    toKg(r.min_price),
+      maxPrice:    toKg(r.max_price),
+      modalPrice:  toKg(r.modal_price),
+      minPriceQ:   parseFloat(r.min_price   || 0),
+      maxPriceQ:   parseFloat(r.max_price   || 0),
+      modalPriceQ: parseFloat(r.modal_price || 0),
       arrivalDate: r.arrival_date || "",
       state:       r.state || state,
     }))
@@ -53,10 +60,10 @@ export const fetchMandiPrices = async ({
 
   if (!records.length) throw new Error("No valid price records");
 
-  const modalPrices = records.map(r => r.modalPrice);
+  const modalPrices = records.map(r => r.modalPrice); // ₹/kg
   const avgPrice = Math.round(
-    modalPrices.reduce((s, p) => s + p, 0) / modalPrices.length
-  );
+    (modalPrices.reduce((s, p) => s + p, 0) / modalPrices.length) * 100
+  ) / 100;
 
   const result = {
     commodity,
@@ -70,6 +77,7 @@ export const fetchMandiPrices = async ({
       bestPrice:    records[0].modalPrice,
       totalMarkets: records.length,
       lastUpdated:  records[0].arrivalDate,
+      unit:         "₹/kg",
     },
     source: "data.gov.in / AGMARKNET",
     live: true,

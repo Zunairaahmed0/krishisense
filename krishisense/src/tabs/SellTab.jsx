@@ -185,7 +185,7 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
         bestPrice:       pricesData.summary.bestPrice,
       };
       setMarketData(mktData);
-      try { localStorage.setItem("ks_last_market", JSON.stringify(mktData)); } catch {}
+      try { localStorage.setItem("ks_last_market_v2", JSON.stringify(mktData)); } catch {}
 
       if (voiceOn && rec) {
         const msg = rec.action === "HOLD"
@@ -198,10 +198,10 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
       console.error("[market]", e.message);
       // Try localStorage cache before static fallback
       try {
-        const cached = JSON.parse(localStorage.getItem("ks_last_market") || "null");
-        if (cached?.latestPrice) {
+        const cached = JSON.parse(localStorage.getItem("ks_last_market_v2") || "null");
+        if (cached?.latestPrice && cached?.dataSource) {
           setMarketData(cached);
-          setError("Showing last known market data — refresh for live prices.");
+          setError("Showing last known live data — refresh to update.");
           setLoading(false);
           return;
         }
