@@ -1,10 +1,12 @@
-const DATA_GOV_KEY = process.env.DATA_GOV_API_KEY;
+// Read lazily inside functions — module-level assignment runs before dotenv.config()
 const BASE = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";
 
 const priceCache = new Map();
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 const fetchRaw = async ({ commodity, state, district, market, limit }) => {
+  const DATA_GOV_KEY = process.env.DATA_GOV_API_KEY;
+  if (!DATA_GOV_KEY) throw new Error("DATA_GOV_API_KEY not set in environment");
   const params = new URLSearchParams({
     "api-key": DATA_GOV_KEY,
     format: "json",
@@ -55,7 +57,7 @@ export const fetchMandiPrices = async ({
   // Convert to ₹/kg for display by dividing by 100
   const toKg = (v) => Math.round(parseFloat(v || 0) / 100 * 100) / 100;
 
-  const records = json.records
+  const records = rawRecords
     .map(r => ({
       market:      r.market     || "",
       district:    r.district   || "",

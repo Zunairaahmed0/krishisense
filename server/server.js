@@ -361,6 +361,7 @@ app.post("/api/market/multi", rateLimit(10, 60_000), async (req, res) => {
 // ── Start ──────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n🌱 KrishiSense API running on http://localhost:${PORT}`);
-  console.log(`   Gemini key: ${process.env.GEMINI_API_KEY ? "✅ loaded" : "❌ MISSING — set GEMINI_API_KEY"}`);
-  console.log(`   Frontend:   ${process.env.FRONTEND_URL || "(dev: any origin allowed)"}\n`);
+  console.log(`   Gemini key:      ${process.env.GEMINI_API_KEY ? "✅ loaded" : "❌ MISSING — set GEMINI_API_KEY"}`);
+  console.log(`   Data.gov.in key: ${process.env.DATA_GOV_API_KEY ? "✅ loaded" : "❌ MISSING — set DATA_GOV_API_KEY"}`);
+  console.log(`   Frontend:        ${process.env.FRONTEND_URL || "(dev: any origin allowed)"}\n`);
 });
