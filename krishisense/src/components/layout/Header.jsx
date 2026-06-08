@@ -1,7 +1,7 @@
 import { Bell, Menu, ChevronLeft } from "lucide-react";
 import { C } from "../../constants/theme";
 
-export default function Header({ title, subtitle, showBack, onBack, logoSrc, notifications = 0, rightSlot, onMenuClick, onBellClick, onLogoTap }) {
+export default function Header({ title, subtitle, iconSrc, showBack, onBack, logoSrc, notifications = 0, rightSlot, onMenuClick, onBellClick, onLogoTap }) {
   return (
     <div style={{
       background:   "rgba(255,255,255,0.88)",
@@ -30,10 +30,19 @@ export default function Header({ title, subtitle, showBack, onBack, logoSrc, not
       {/* Center */}
       <div style={{ textAlign: "center", flex: 1, margin: "0 12px", minWidth: 0 }}>
         {title ? (
-          <>
-            <div style={{ fontSize: 17, fontWeight: 800, color: C.primary }}>{title}</div>
-            {subtitle && <div style={{ fontSize: 11, color: C.mut }}>{subtitle}</div>}
-          </>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            {iconSrc && (
+              <img
+                src={iconSrc}
+                alt=""
+                style={{ width: 32, height: 32, objectFit: "contain", borderRadius: 6, flexShrink: 0 }}
+              />
+            )}
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.primary }}>{title}</div>
+              {subtitle && <div style={{ fontSize: 11, color: C.mut }}>{subtitle}</div>}
+            </div>
+          </div>
         ) : logoSrc ? (
           <div
             onClick={onLogoTap}

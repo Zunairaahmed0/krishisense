@@ -66,7 +66,17 @@ function StepsModal({ scheme, onClose }) {
       }}>
         <div style={{ width: 36, height: 4, borderRadius: 99, background: C.brd, margin: "0 auto 18px" }} />
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-          <div style={{ fontSize: 28 }}>{scheme.icon}</div>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, overflow: "hidden", flexShrink: 0,
+            background: scheme.tint, border: `1px solid ${scheme.border}`,
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24,
+          }}>
+            {scheme.logo
+              ? <img src={scheme.logo} alt={scheme.shortName} style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.nextSibling.style.display = "flex"; }} />
+              : null}
+            <span style={{ display: scheme.logo ? "none" : "flex" }}>{scheme.icon}</span>
+          </div>
           <div>
             <div style={{ fontSize: 16, fontWeight: 800, color: C.txt }}>{scheme.shortName}</div>
             <div style={{ fontSize: 11, color: C.mut }}>{scheme.name}</div>
@@ -127,8 +137,17 @@ function SchemeCard({ scheme, isApplied, onToggleApplied }) {
             width: 46, height: 46, borderRadius: 14, flexShrink: 0, fontSize: 22,
             display: "flex", alignItems: "center", justifyContent: "center",
             background: scheme.tint, border: `1px solid ${scheme.border}`,
+            overflow: "hidden",
           }}>
-            {scheme.icon}
+            {scheme.logo
+              ? <img
+                  src={scheme.logo}
+                  alt={scheme.shortName}
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  onError={e => { e.currentTarget.style.display = "none"; e.currentTarget.nextSibling.style.display = "flex"; }}
+                />
+              : null}
+            <span style={{ display: scheme.logo ? "none" : "flex" }}>{scheme.icon}</span>
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>

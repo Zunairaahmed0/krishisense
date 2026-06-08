@@ -243,7 +243,8 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
 
     } catch (e) {
       console.error("[market]", e.message);
-      // Try localStorage cache before static fallback
+
+      // 1. Try localStorage cache first
       try {
         const cached = JSON.parse(localStorage.getItem("ks_last_market_v2") || "null");
         if (cached?.latestPrice && cached?.dataSource) {
@@ -253,7 +254,81 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
           return;
         }
       } catch {}
-      setError("Live mandi data unavailable — showing AI estimated prices.");
+
+      // 2. AI-powered fallback: ask Gemini for location-specific prices + real mandi names
+      try {
+        const city  = loc?.name  || "your area";
+        const state = loc?.state || "Maharashtra";
+        const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+        const aiPrompt = `Today is ${today}. You are an Indian agricultural market expert.
+Give CURRENT realistic wholesale mandi prices for ${selectedCrop} in ${city}, ${state}, India.
+Return ONLY valid JSON (no markdown):
+{
+  "avgPrice": <number ₹/kg>,
+  "mandis": [
+    {"name":"<real APMC or mandi name near ${city}>","district":"${city}","price":<₹/kg>,"min":<₹/kg>,"max":<₹/kg>},
+    {"name":"<second real mandi near ${city}>","district":"${city}","price":<₹/kg>,"min":<₹/kg>,"max":<₹/kg>},
+    {"name":"<mandi in nearby district>","district":"<nearby district>","price":<₹/kg>,"min":<₹/kg>,"max":<₹/kg>},
+    {"name":"<another nearby mandi>","district":"<nearby district>","price":<₹/kg>,"min":<₹/kg>,"max":<₹/kg>}
+  ],
+  "trendPct": <number, positive=rising>,
+  "recommendation": {
+    "action": "HOLD or SELL",
+    "days": <0-7>,
+    "reason": "<one sentence using city name and current season>",
+    "confidence": <65-90>,
+    "percent": <number>,
+    "target": "₹XX-YY"
+  }
+}
+Use real APMC/mandi names that actually exist near ${city}. Base prices on current ${new Date().toLocaleString("default",{month:"long"})} seasonal rates.`;
+
+        const raw = await askAI(aiPrompt, "Return only valid JSON. No markdown, no explanation.");
+        const aiResult = parseJSON(raw);
+        if (aiResult?.avgPrice && aiResult?.mandis?.length) {
+          const p = aiResult.avgPrice;
+          const slope = (aiResult.trendPct || 0) * p / 100 / 5;
+          const chartPrices = Array.from({ length: 10 }, (_, i) => ({
+            day: `D${i + 1}`, price: +(p - slope * (9 - i)).toFixed(2), forecast: null,
+          }));
+          const forecastPrices = Array.from({ length: 5 }, (_, i) => ({
+            day: `F${i + 1}`, price: null, forecast: Math.round(p + slope * (i + 1)),
+          }));
+          const mandis = aiResult.mandis.map(m => ({
+            name: m.name, city: m.district, price: m.price,
+            minPrice: m.min, maxPrice: m.max, updated: "AI estimate",
+            change: Math.round(((m.price - p) / p) * 10),
+          }));
+          const rec = aiResult.recommendation || {};
+          const aiData = {
+            latestPrice:  p,
+            trendPercent: aiResult.trendPct || 0,
+            isUp:         (aiResult.trendPct || 0) >= 0,
+            chartPrices,
+            forecastPrices,
+            mandis,
+            buyers: buildLocalBuyers(city, state, p),
+            recommendation: {
+              action:     rec.action || "HOLD",
+              days:       rec.days   || 3,
+              target:     rec.target || `₹${Math.round(p * 1.1)}-${Math.round(p * 1.2)}`,
+              reason:     rec.reason || `${selectedCrop} prices near ${city} based on current seasonal data.`,
+              confidence: rec.confidence || 75,
+              percent:    rec.percent    || Math.abs(aiResult.trendPct || 5),
+            },
+            dataSource:   "AI estimate",
+          };
+          setMarketData(aiData);
+          setError(`📡 AGMARKNET offline — AI prices for ${city} (tap Refresh for live data)`);
+          setLoading(false);
+          return;
+        }
+      } catch (aiErr) {
+        console.error("[market ai fallback]", aiErr.message);
+      }
+
+      // 3. Last resort: static fallback
+      setError("Market data unavailable — showing estimated prices.");
       setMarketData(getFallbackData(selectedCrop));
     } finally {
       setLoading(false);
@@ -398,19 +473,30 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>Live Mandi Prices</div>
           {marketData?.dataSource && !marketData?.fromFallback && (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 4,
-              padding: "2px 8px", borderRadius: 99,
-              background: "#E8F5E9", border: "1px solid #C8E6C9",
-              fontSize: 9, fontWeight: 700, color: "#2E7D32"
-            }}>
+            marketData.dataSource === "AI estimate" ? (
               <div style={{
-                width: 5, height: 5, borderRadius: "50%",
-                background: "#2E7D32",
-                animation: "pulse 1.5s infinite"
-              }} />
-              LIVE · {marketData.localDistrict ? `Near ${marketData.localDistrict}` : marketData.dataSource}
-            </div>
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "2px 8px", borderRadius: 99,
+                background: "#E3F2FD", border: "1px solid #90CAF9",
+                fontSize: 9, fontWeight: 700, color: "#1565C0"
+              }}>
+                ✦ AI · {loc?.name || "Your Area"}
+              </div>
+            ) : (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "2px 8px", borderRadius: 99,
+                background: "#E8F5E9", border: "1px solid #C8E6C9",
+                fontSize: 9, fontWeight: 700, color: "#2E7D32"
+              }}>
+                <div style={{
+                  width: 5, height: 5, borderRadius: "50%",
+                  background: "#2E7D32",
+                  animation: "pulse 1.5s infinite"
+                }} />
+                LIVE · {marketData.localDistrict ? `Near ${marketData.localDistrict}` : marketData.dataSource}
+              </div>
+            )
           )}
         </div>
         <button onClick={() => setMandiModal(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.p3, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>View All <ChevronRight size={14}/></button>
@@ -449,13 +535,16 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
         )}
       </div>
 
-      {/* ── AGMARKNET Attribution ──────────────────────────── */}
-      {marketData?.lastUpdated && (
+      {/* ── Data Source Attribution ────────────────────────── */}
+      {marketData?.dataSource && (
         <div style={{
           fontSize: 9, color: C.mut, textAlign: "center",
           padding: "4px 0 8px", fontWeight: 600
         }}>
-          📊 Data: AGMARKNET via data.gov.in · Last updated: {marketData.lastUpdated} · {marketData.totalMarkets} markets reporting
+          {marketData.dataSource === "AI estimate"
+            ? `✦ AI estimated prices for ${loc?.name || "your area"} · Refresh for live AGMARKNET data`
+            : `📊 Data: AGMARKNET via data.gov.in · Last updated: ${marketData.lastUpdated} · ${marketData.totalMarkets} markets reporting`
+          }
         </div>
       )}
 

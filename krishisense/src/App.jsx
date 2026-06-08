@@ -405,7 +405,7 @@ export default function App() {
     grow:    { title: "AI Crop Health Monitor",   subtitle: "Detect diseases early" },
     sell:    { title: "Smart Selling Insights",   subtitle: "AI-powered market intelligence" },
     sustain: { title: "SUSTAIN",                  subtitle: "Sustainable Farming • Save Resources" },
-    schemes: { title: "Government Schemes",       subtitle: "Benefits you qualify for" },
+    schemes: { title: "Government Schemes",       subtitle: "Benefits you qualify for", iconSrc: "/assets/schemes/govt.png" },
   };
 
   const hdr = TAB_HEADERS[tab] || {};
@@ -484,6 +484,7 @@ export default function App() {
       <Header
         title={hdr.title}
         subtitle={hdr.subtitle}
+        iconSrc={hdr.iconSrc}
         logoSrc={hdr.logo ? logoImg : undefined}
         showBack={tab !== "home"}
         onBack={() => setTab("home")}
