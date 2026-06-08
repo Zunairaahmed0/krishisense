@@ -75,7 +75,7 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
     };
   };
 
-  // 2. Fetch live grounded market intelligence using Google Gemini Search Grounding
+  // 2. Fetch live mandi prices from data.gov.in AGMARKNET via backend
   const fetchLiveMarketData = async (selectedCrop) => {
     // ── Demo mode: instant market data ────────────────────────────────────────
     if (demoMode) {
@@ -87,112 +87,116 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
 
     setLoading(true);
     setError(null);
+    const BACKEND = (import.meta.env.VITE_BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
+    const stateName = loc?.state || "Maharashtra";
+
     try {
-      const stateName = loc?.state || "Maharashtra";
-      const cityName = loc?.name || "Nashik";
+      const [pricesRes, trendRes] = await Promise.all([
+        fetch(`${BACKEND}/api/market/prices?commodity=${encodeURIComponent(selectedCrop)}&state=${encodeURIComponent(stateName)}`),
+        fetch(`${BACKEND}/api/market/trend?commodity=${encodeURIComponent(selectedCrop)}&state=${encodeURIComponent(stateName)}`)
+      ]);
 
-      const prompt = `Find the actual, latest wholesale market (mandi) prices of crop "${selectedCrop}" in the state of "${stateName}" (especially near "${cityName}") in India for today or the most recent date in May 2026.
-Based on the real-time search results, generate a single, valid JSON object conforming exactly to this structure (do not include markdown ticks, prefix, or extra text):
-{
-  "latestPrice": 24, 
-  "trendPercent": 8.5, 
-  "mandis": [
-    { "name": "Mandi 1", "city": "City 1", "price": 25, "change": 8, "updated": "30 min ago" },
-    { "name": "Mandi 2", "city": "City 2", "price": 27, "change": 12, "updated": "20 min ago" },
-    { "name": "Mandi 3", "city": "City 3", "price": 24, "change": 5, "updated": "1 hr ago" },
-    { "name": "Mandi 4", "city": "City 4", "price": 28, "change": 9, "updated": "25 min ago" }
-  ],
-  "pastPrices": [
-    {"d": "D1", "p": 20.1},
-    {"d": "D2", "p": 20.5},
-    {"d": "D3", "p": 20.9},
-    {"d": "D4", "p": 21.3},
-    {"d": "D5", "p": 21.6},
-    {"d": "D6", "p": 21.8},
-    {"d": "D7", "p": 22.0},
-    {"d": "D8", "p": 22.4},
-    {"d": "D9", "p": 22.8},
-    {"d": "D10", "p": 23.0},
-    {"d": "D11", "p": 23.3},
-    {"d": "D12", "p": 23.5},
-    {"d": "D13", "p": 23.8},
-    {"d": "D14", "p": 24.0},
-    {"d": "D15", "p": 24.2}
-  ],
-  "forecastPrices": [
-    {"d": "F1", "p": 24.8},
-    {"d": "F2", "p": 25.2},
-    {"d": "F3", "p": 25.6},
-    {"d": "F4", "p": 26.0},
-    {"d": "F5", "p": 26.5}
-  ],
-  "buyers": [
-    { "name": "Mandi Direct Buyer 1", "type": "Retailer", "dist": "12 km", "offer": 26, "qty": "500 kg", "color": "#E65100" },
-    { "name": "Agro Export Firm", "type": "Exporter", "dist": "85 km", "offer": 29, "qty": "2 tonnes", "color": "#1565C0" },
-    { "name": "Greenhouse Processor", "type": "Restaurant", "dist": "6 km", "offer": 25, "qty": "300 kg", "color": "#388E3C" }
-  ],
-  "recommendation": {
-    "action": "HOLD", 
-    "days": 5,
-    "target": "₹26-28",
-    "reason": "High demand expected in regional markets due to temporary supply drops.",
-    "confidence": 88,
-    "percent": 12
-  }
-}`;
+      if (!pricesRes.ok) throw new Error("Price API failed");
 
-      const sys = "You are KrishiSense Live Mandi Prices Agent. You must search the web for actual live Indian mandi rates and return ONLY valid JSON matching the format. Ensure prices are represented in INR per kilogram (e.g. ₹24/kg, so return numbers like 24).";
-      
-      const raw = await askAI(prompt, sys, true);
-      const parsed = parseJSON(raw);
+      const pricesData = await pricesRes.json();
+      const trendData  = trendRes.ok ? await trendRes.json() : { trend: [] };
 
-      if (parsed && parsed.latestPrice && parsed.mandis) {
-        const formattedChartData = (parsed.pastPrices || []).map(d => ({
-          day: d.d || d.day,
-          price: d.p || d.price,
-          forecast: null
-        }));
+      // Build chart data from real trend
+      const chartPrices = (trendData.trend || []).map((t, i) => ({
+        day:      `D${i + 1}`,
+        price:    t.price,
+        forecast: null,
+        date:     t.date,
+      }));
 
-        const formattedForecastData = (parsed.forecastPrices || []).map(d => ({
-          day: d.d || d.day,
-          price: null,
-          forecast: d.p || d.price
-        }));
-
-        const mktData = {
-          latestPrice: parsed.latestPrice,
-          trendPercent: parsed.trendPercent || 0,
-          isUp: parseFloat(parsed.trendPercent || 0) >= 0,
-          chartPrices: formattedChartData,
-          forecastPrices: formattedForecastData,
-          mandis: parsed.mandis,
-          buyers: parsed.buyers || [],
-          recommendation: parsed.recommendation || {
-            action: "SELL",
-            days: 0,
-            target: `₹${parsed.latestPrice}`,
-            reason: "Current market prices are high. Favorable time to sell.",
-            confidence: 90,
-            percent: 0
-          }
-        };
-        setMarketData(mktData);
-        try { localStorage.setItem("ks_last_market", JSON.stringify(mktData)); } catch {}
-
-        // Trigger dynamic voice output
-        const rec = parsed.recommendation;
-        if (voiceOn && rec) {
-          const speakText = rec.action === "HOLD"
-            ? `AI recommendation for ${selectedCrop} is to hold for ${rec.days} more days. Target price is ${rec.target}. ${rec.reason}`
-            : `AI recommendation for ${selectedCrop} is to sell now at ₹${parsed.latestPrice} per kilogram. ${rec.reason}`;
-          speak(speakText, lang);
-        }
-      } else {
-        throw new Error("Invalid pricing payload structure returned");
+      // If trend is empty fall back to records
+      if (!chartPrices.length) {
+        pricesData.records.slice(0, 10).forEach((r, i) => {
+          chartPrices.push({ day: `D${i + 1}`, price: r.modalPrice, forecast: null });
+        });
       }
+
+      const lastPrice  = pricesData.summary.avgPrice;
+      const firstPrice = chartPrices[0]?.price || lastPrice;
+      const trendPct   = firstPrice > 0
+        ? (((lastPrice - firstPrice) / firstPrice) * 100).toFixed(1)
+        : "0";
+      const trendSlope = chartPrices.length > 1
+        ? (chartPrices[chartPrices.length - 1].price - chartPrices[0].price) / chartPrices.length
+        : 0.5;
+
+      // 5-day AI forecast extrapolation
+      const forecastPrices = Array.from({ length: 5 }, (_, i) => ({
+        day:      `F${i + 1}`,
+        price:    null,
+        forecast: Math.round(lastPrice + trendSlope * (i + 1)),
+      }));
+
+      // Top 4 mandis from real records
+      const mandis = pricesData.records.slice(0, 4).map(r => ({
+        name:     r.market,
+        city:     r.district || r.market,
+        price:    r.modalPrice,
+        minPrice: r.minPrice,
+        maxPrice: r.maxPrice,
+        variety:  r.variety,
+        updated:  r.arrivalDate || "Today",
+        change:   Math.round(((r.modalPrice - lastPrice) / lastPrice) * 10),
+      }));
+
+      // Ask Gemini for recommendation using real price numbers
+      const recPrompt =
+        `Agricultural market analyst. Real AGMARKNET government data:
+Crop: ${selectedCrop}, State: ${stateName}
+Average modal price across ${pricesData.summary.totalMarkets} mandis: ₹${lastPrice}/quintal
+Best mandi: ${pricesData.summary.bestMarket} at ₹${pricesData.summary.bestPrice}/quintal
+Price trend: ${trendPct}% change over last ${chartPrices.length} data points
+Last updated: ${pricesData.summary.lastUpdated}
+
+Give HOLD or SELL recommendation. Return ONLY valid JSON:
+{"action":"HOLD or SELL","days":0,"target":"₹XX-XX","reason":"one sentence using the real price data","confidence":85,"percent":8}`;
+
+      const raw = await askAI(recPrompt, "Return only valid JSON. No markdown.");
+      const rec = parseJSON(raw) || {
+        action:     parseFloat(trendPct) > 3 ? "HOLD" : "SELL",
+        days:       parseFloat(trendPct) > 3 ? 5 : 0,
+        target:     `₹${Math.round(lastPrice * 1.1)}-${Math.round(lastPrice * 1.18)}`,
+        reason:     `${selectedCrop} prices averaging ₹${lastPrice} across ${pricesData.summary.totalMarkets} mandis in ${stateName}.`,
+        confidence: 82,
+        percent:    Math.abs(parseFloat(trendPct)),
+      };
+
+      const mktData = {
+        latestPrice:  lastPrice,
+        trendPercent: parseFloat(trendPct),
+        isUp:         parseFloat(trendPct) >= 0,
+        chartPrices,
+        forecastPrices,
+        mandis,
+        buyers: BUYERS.map(b => ({
+          ...b,
+          offer: Math.round(lastPrice * 0.012 + 2),
+        })),
+        recommendation:  rec,
+        dataSource:      pricesData.source,
+        lastUpdated:     pricesData.summary.lastUpdated,
+        totalMarkets:    pricesData.summary.totalMarkets,
+        bestMarket:      pricesData.summary.bestMarket,
+        bestPrice:       pricesData.summary.bestPrice,
+      };
+      setMarketData(mktData);
+      try { localStorage.setItem("ks_last_market", JSON.stringify(mktData)); } catch {}
+
+      if (voiceOn && rec) {
+        const msg = rec.action === "HOLD"
+          ? `${selectedCrop} average price is ₹${lastPrice} per quintal across ${pricesData.summary.totalMarkets} mandis. Recommendation: hold for ${rec.days} days. Target ${rec.target}.`
+          : `${selectedCrop} at ₹${lastPrice} per quintal. Best price at ${pricesData.summary.bestMarket}. Good time to sell.`;
+        speak(msg, lang);
+      }
+
     } catch (e) {
-      console.warn("Real-time grounding fetch failed:", e);
-      // Try localStorage cache before falling back to static data
+      console.error("[market]", e.message);
+      // Try localStorage cache before static fallback
       try {
         const cached = JSON.parse(localStorage.getItem("ks_last_market") || "null");
         if (cached?.latestPrice) {
@@ -202,18 +206,8 @@ Based on the real-time search results, generate a single, valid JSON object conf
           return;
         }
       } catch {}
-      setError("Market data temporarily unavailable. Showing estimated prices.");
-
-      const fallback = getFallbackData(selectedCrop);
-      setMarketData(fallback);
-
-      if (voiceOn && fallback.recommendation) {
-        const rec = fallback.recommendation;
-        const speakText = rec.action === "HOLD"
-          ? `AI recommendation for ${selectedCrop} is to hold for ${rec.days} more days. Target price is ${rec.target}. ${rec.reason}`
-          : `AI recommendation for ${selectedCrop} is to sell now at ₹${fallback.latestPrice} per kilogram. ${rec.reason}`;
-        speak(speakText, lang);
-      }
+      setError("Live mandi data unavailable — showing AI estimated prices.");
+      setMarketData(getFallbackData(selectedCrop));
     } finally {
       setLoading(false);
     }
@@ -354,7 +348,24 @@ Based on the real-time search results, generate a single, valid JSON object conf
 
       {/* ── Live Mandi Prices ──────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px", marginBottom: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>Live Mandi Prices</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>Live Mandi Prices</div>
+          {marketData?.dataSource && !marketData?.fromFallback && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "2px 8px", borderRadius: 99,
+              background: "#E8F5E9", border: "1px solid #C8E6C9",
+              fontSize: 9, fontWeight: 700, color: "#2E7D32"
+            }}>
+              <div style={{
+                width: 5, height: 5, borderRadius: "50%",
+                background: "#2E7D32",
+                animation: "pulse 1.5s infinite"
+              }} />
+              LIVE · {marketData.dataSource}
+            </div>
+          )}
+        </div>
         <button onClick={() => setMandiModal(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.p3, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>View All <ChevronRight size={14}/></button>
       </div>
 
@@ -369,7 +380,19 @@ Based on the real-time search results, generate a single, valid JSON object conf
               <div style={{ fontSize: 11, fontWeight: 700, color: C.txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.name}</div>
               <div style={{ fontSize: 10, color: C.mut, marginBottom: 6 }}>{m.city}</div>
               <div style={{ fontSize: 22, fontWeight: 800, color: C.txt }}>₹{m.price}<span style={{ fontSize: 12, color: C.mut }}>/kg</span></div>
-              <div style={{ fontSize: 10, color: C.p3, fontWeight: 600 }}>↑ +{m.change}%</div>
+              {m.minPrice && m.maxPrice && (
+                <div style={{ fontSize: 9, color: C.mut, marginTop: 2 }}>
+                  Range: ₹{m.minPrice}–₹{m.maxPrice}
+                </div>
+              )}
+              {m.variety && m.variety !== "Common" && (
+                <div style={{ fontSize: 9, color: C.mut }}>
+                  Variety: {m.variety}
+                </div>
+              )}
+              <div style={{ fontSize: 10, color: m.change >= 0 ? C.p3 : C.red, fontWeight: 600 }}>
+                {m.change >= 0 ? "↑" : "↓"} {m.change >= 0 ? "+" : ""}{m.change}%
+              </div>
               <Sparkline data={currentData.chartPrices.slice(-8).map(d => d.price || latest)} color={C.p3} width={80} height={24} />
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 9, color: C.mut }}>
                 <LiveDot color={C.p3} /> Updated {m.updated}
@@ -378,6 +401,16 @@ Based on the real-time search results, generate a single, valid JSON object conf
           ))
         )}
       </div>
+
+      {/* ── AGMARKNET Attribution ──────────────────────────── */}
+      {marketData?.lastUpdated && (
+        <div style={{
+          fontSize: 9, color: C.mut, textAlign: "center",
+          padding: "4px 0 8px", fontWeight: 600
+        }}>
+          📊 Data: AGMARKNET via data.gov.in · Last updated: {marketData.lastUpdated} · {marketData.totalMarkets} markets reporting
+        </div>
+      )}
 
       {/* ── Price Trend Chart ──────────────────────────────── */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px", marginBottom: 10 }}>

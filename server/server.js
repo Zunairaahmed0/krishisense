@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { evaluateAlerts } from "./lib/alertEngine.js";
 import { sendAlertToUser, isAdminReady, getAdminFirestore } from "./lib/fcmSender.js";
+import { fetchMandiPrices, fetchPriceTrend, fetchMultiCropPrices } from "./lib/mandiPrices.js";
 
 dotenv.config();
 
@@ -323,6 +324,38 @@ app.post("/api/alerts/demo", async (req, res) => {
   const alert = DEMO[alertType] || DEMO.early_blight;
   const ok    = await sendAlertToUser(fcmToken, alert);
   res.json({ sent: ok, alert });
+});
+
+// ── Mandi Prices (data.gov.in / AGMARKNET) ────────────────────────────────────
+app.get("/api/market/prices", rateLimit(30, 60_000), async (req, res) => {
+  const { commodity = "Onion", state = "Maharashtra", district, market } = req.query;
+  try {
+    const data = await fetchMandiPrices({ commodity, state, district, market });
+    res.json(data);
+  } catch (e) {
+    console.error("[mandi prices]", e.message);
+    res.status(502).json({ error: e.message, fallback: true });
+  }
+});
+
+app.get("/api/market/trend", rateLimit(20, 60_000), async (req, res) => {
+  const { commodity = "Onion", state = "Maharashtra" } = req.query;
+  try {
+    const trend = await fetchPriceTrend(commodity, state);
+    res.json({ trend, commodity, state, source: "data.gov.in / AGMARKNET" });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
+});
+
+app.post("/api/market/multi", rateLimit(10, 60_000), async (req, res) => {
+  const { crops = ["Onion", "Tomato", "Wheat"], state = "Maharashtra" } = req.body;
+  try {
+    const data = await fetchMultiCropPrices(crops, state);
+    res.json({ data, source: "data.gov.in / AGMARKNET" });
+  } catch (e) {
+    res.status(502).json({ error: e.message });
+  }
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────
