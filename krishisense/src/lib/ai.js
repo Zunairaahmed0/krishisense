@@ -7,7 +7,7 @@
  * Local dev (no VITE_BACKEND_URL): calls Gemini directly using VITE_GEMINI_KEY.
  */
 
-const BACKEND_URL   = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL   = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
 const GEMINI_KEY    = import.meta.env.VITE_GEMINI_KEY;
 
 const GEMINI_MODELS = [

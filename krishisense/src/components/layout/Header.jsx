@@ -1,7 +1,7 @@
 import { Bell, Menu, ChevronLeft } from "lucide-react";
 import { C } from "../../constants/theme";
 
-export default function Header({ title, subtitle, showBack, onBack, logoSrc, notifications = 0, rightSlot, onMenuClick, onBellClick }) {
+export default function Header({ title, subtitle, showBack, onBack, logoSrc, notifications = 0, rightSlot, onMenuClick, onBellClick, onLogoTap }) {
   return (
     <div style={{
       background:   "rgba(255,255,255,0.88)",
@@ -35,16 +35,23 @@ export default function Header({ title, subtitle, showBack, onBack, logoSrc, not
             {subtitle && <div style={{ fontSize: 11, color: C.mut }}>{subtitle}</div>}
           </>
         ) : logoSrc ? (
-          <div style={{
-            width: 210,
-            maxWidth: "100%",
-            height: 44,
-            margin: "0 auto",
-            backgroundImage: `url(${logoSrc})`,
-            backgroundRepeat: "no-repeat",
-            backgroundPosition: "center 43%",
-            backgroundSize: "330px auto",
-          }} role="img" aria-label="KrishiSense" />
+          <div
+            onClick={onLogoTap}
+            style={{
+              width: 210,
+              maxWidth: "100%",
+              height: 44,
+              margin: "0 auto",
+              backgroundImage: `url(${logoSrc})`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "center 43%",
+              backgroundSize: "330px auto",
+              cursor: onLogoTap ? "pointer" : "default",
+              WebkitTapHighlightColor: "transparent",
+            }}
+            role="img"
+            aria-label="KrishiSense"
+          />
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg,${C.p2},${C.p4})`, display: "flex", alignItems: "center", justifyContent: "center" }}>

@@ -10,6 +10,7 @@ export default function MenuDrawer({ user, tab, setTab, lang, setLang, voiceOn, 
     { id: "land",    emoji: "🛰",  label: "LAND Analysis" },
     { id: "grow",    emoji: "🌿", label: "GROW — Crop Health" },
     { id: "sell",    emoji: "📈", label: "SELL — Market Prices" },
+    { id: "schemes", emoji: "🏛️", label: "SCHEMES — Govt Benefits" },
     { id: "sustain", emoji: "💧", label: "SUSTAIN — Eco Farming" },
   ];
 

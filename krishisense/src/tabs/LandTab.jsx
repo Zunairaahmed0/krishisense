@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { RefreshCw, CheckCircle, Loader2, ChevronRight } from "lucide-react";
+import PortfolioOptimizer from "../components/ui/PortfolioOptimizer";
 import { C } from "../constants/theme";
 import { askAI } from "../lib/ai";
 import { parseJSON } from "../lib/utils";
@@ -10,6 +11,10 @@ import Badge from "../components/ui/Badge";
 import CircularGauge from "../components/ui/CircularGauge";
 import Spinner from "../components/ui/Spinner";
 import { fetchNDVI, classifyNDVI, ndviPromptContext, modisDateToISO } from "../lib/ndvi";
+import { buildCropRAGContext } from "../lib/ragEngine";
+import { useDemoMode } from "../lib/demoMode";
+import { DEMO_SOIL_SCAN } from "../lib/demoData";
+import { useToast } from "../components/ui/Toast";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -236,7 +241,9 @@ function MapZoomController({ showNDVI }) {
   return null;
 }
 
-export default function LandTab({ loc, locError, weather, landAerialImg, onionsImg, lang, voiceOn, scans = [], loadingScans = false, onScanSaved, onScanDeleted, onLocationClick }) {
+export default function LandTab({ loc, locError, weather, landAerialImg, onionsImg, lang, voiceOn, scans = [], loadingScans = false, onScanSaved, onScanDeleted, onLocationClick, user }) {
+  const demoMode = useDemoMode();
+  const { showToast } = useToast();
   const [selectedScan, setSelectedScan] = useState(null);
   const [phase, setPhase]     = useState("idle");
   const [soil,  setSoil]      = useState(null);
@@ -248,13 +255,33 @@ export default function LandTab({ loc, locError, weather, landAerialImg, onionsI
   const [isSaved, setIsSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activeMapTab, setActiveMapTab] = useState("satellite");
+  const [realSoilData, setRealSoilData] = useState(false); // true if SoilGrids returned real values
+  const [confBreakdown, setConfBreakdown] = useState(null); // tooltip text
+  const [showConf, setShowConf] = useState(false); // show confidence breakdown tooltip
+  const [usingCache, setUsingCache] = useState(false);
   const [selectedSector, setSelectedSector] = useState(0);
   const [showNDVI, setShowNDVI] = useState(false);
+  const [showPortfolio, setShowPortfolio] = useState(false);
   const fileRef = useRef(null);
   const scan = async (targetLoc = loc) => {
     if (!targetLoc) return;
+
+    // ── Demo mode: instant impressive results ────────────────────────────────
+    if (demoMode) {
+      setSoil(DEMO_SOIL_SCAN.soil);
+      setRec(DEMO_SOIL_SCAN.rec);
+      setNdviData(DEMO_SOIL_SCAN.ndvi);
+      setNdvi(DEMO_SOIL_SCAN.ndvi);
+      setNdviImage(null);
+      setRealSoilData(true);
+      setUsingCache(false);
+      setPhase("result");
+      return;
+    }
+
     setPhase("scanning");
-    
+    setUsingCache(false);
+
     try {
       // Start NDVI satellite fetch from NASA MODIS (free, no credentials required)
       const ndviPromise = fetchNDVI(targetLoc.lat, targetLoc.lon);
@@ -282,9 +309,11 @@ export default function LandTab({ loc, locError, weather, landAerialImg, onionsI
             soc: soc ? (soc/100).toFixed(2) : sd.soc,
             texture: sd.texture
           };
+          setRealSoilData(true);
         }
       } catch (e) {
         console.warn("SoilGrids API offline/unavailable. Falling back to high-fidelity geographic estimation:", e);
+        setRealSoilData(false);
       }
       setSoil(sd);
 
@@ -322,11 +351,14 @@ export default function LandTab({ loc, locError, weather, landAerialImg, onionsI
         ? `Satellite NDVI telemetry: index is ${modisResult.current} (${modisResult.trendLabel} trend over recent history). Source Sensor: ${modisResult.source || "NASA MODIS"}.`
         : "Satellite NDVI telemetry: unavailable.";
 
+      const ragContext = buildCropRAGContext(sd, targetLoc, modisResult);
+
       const prompt = `Expert Indian agronomist. Recommend the best crop for this specific land scan.
 Location: ${targetLoc.name}, ${targetLoc.state}
 Soil pH: ${sd.ph} | Nitrogen: ${sd.n} kg/ha | Organic Carbon: ${sd.soc}% | Texture: ${sd.texture}
 Temp: ${t ?? "unknown"}C | Humidity: ${h ?? "unknown"}% | Month: ${mo}
 ${ndviContextStr}
+${ragContext ? `\nREGIONAL REFERENCE DATA:\n${ragContext}` : ""}
 
 Return ONLY valid JSON (do not include markdown wrappers or extra text):
 {"crop":"name","confidence":87,"yield":"9 quintals/acre","profit":"₹45,000/acre","duration":"120-140 days","reason":"one sentence","actions":["a","b","c"],"risk":"Low","season":"Kharif"}`;
@@ -334,6 +366,15 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
       const raw = await askAI(prompt);
       const parsed = parseJSON(raw) || getDynamicFallbackRec(targetLoc.name, targetLoc.state, sd);
       setRec(parsed);
+      // ── Build confidence breakdown ───────────────────────────────────────
+      const ndviBonus    = modisResult?.success && modisResult.current > 0.4 ? 5 : 0;
+      const soilBonus    = realSoilData ? 3 : 0;
+      const wxBonus      = (t != null) ? 4 : 0;
+      const boosted      = Math.min(96, (parsed.confidence || 80) + ndviBonus + soilBonus + wxBonus);
+      parsed._confidence = boosted;
+      parsed._breakdown  = `AI Analysis: ${parsed.confidence}%${ndviBonus ? ` | Satellite NDVI: +${ndviBonus}%` : ""}${soilBonus ? ` | Live Soil Data: +${soilBonus}%` : ""}${wxBonus ? ` | Live Weather: +${wxBonus}%` : ""}`;
+      // ── Cache successful result ──────────────────────────────────────────
+      try { localStorage.setItem("ks_last_soil_scan", JSON.stringify({ soil: sd, rec: parsed, ndvi: modisResult, ts: Date.now() })); } catch {}
       setPhase("result");
       if (voiceOn) {
         const msg = lang === "hi"
@@ -345,6 +386,20 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
       }
     } catch (err) {
       console.warn("Scan failed, using robust fallback estimation:", err);
+      // ── Try localStorage cache first ─────────────────────────────────────
+      try {
+        const cached = JSON.parse(localStorage.getItem("ks_last_soil_scan") || "null");
+        if (cached?.rec && cached?.soil) {
+          setSoil(cached.soil);
+          setRec(cached.rec);
+          setNdviData(cached.ndvi || null);
+          setNdvi(cached.ndvi || null);
+          setNdviImage(null);
+          setUsingCache(true);
+          setPhase("result");
+          return;
+        }
+      } catch {}
       // Create high-fidelity local fallback metrics
       const sd = estimateSoilMetrics(targetLoc.lat, targetLoc.lon, targetLoc.name, targetLoc.state);
       setSoil(sd);
@@ -405,6 +460,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
       await api.saveScan("soil", { soil, rec, ndvi: ndvi });
       setIsSaved(true);
       onScanSaved?.();
+      showToast("Scan saved ✓");
     } catch (err) {
       console.warn("Failed to save soil scan to backend:", err);
       alert(lang === "hi" ? "सुरक्षित करने में विफल रहा: " + err.message : lang === "mr" ? "जतन करण्यात अपयशी: " + err.message : "Failed to save report: " + err.message);
@@ -422,18 +478,60 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
         }
         onScanDeleted?.();
       } catch (err) {
-        console.error("Failed to delete scan:", err);
+        console.warn("Failed to delete scan:", err);
+        showToast("Failed to delete report: " + (err?.message || "Unknown error"), "error");
       }
     }
   };
 
-  const reset = () => { 
-    setPhase("idle"); 
-    setSoil(null); 
-    setRec(null); 
-    setImgPrev(null); 
+  const handleShareSoilReport = () => {
+    if (!rec || !soil) return;
+    const lines = [
+      "🌿 KrishiSense Land Scan Report",
+      "",
+      `📍 Location: ${loc?.name || "Your Farm"}, ${loc?.state || ""}`,
+      `🛰 Scan Date: ${new Date().toLocaleDateString()}`,
+      "",
+      "🌱 SOIL HEALTH",
+      `  pH: ${soil.ph} | Nitrogen: ${soil.n} kg/ha | Organic Carbon: ${soil.soc}%`,
+      `  Texture: ${soil.texture}`,
+      "",
+      "✦ AI CROP RECOMMENDATION",
+      `  Recommended Crop: ${rec.crop}`,
+      `  Suitability: ${rec._confidence || rec.confidence}%`,
+      `  Expected Yield: ${rec.yield}`,
+      `  Expected Profit: ${rec.profit}`,
+      `  Season: ${rec.season} | Duration: ${rec.duration}`,
+      "",
+      `📋 Reason: ${rec.reason}`,
+      "",
+      "ACTION PLAN",
+      ...(rec.actions || []).map((a, i) => `  ${i + 1}. ${a}`),
+      "",
+      "─────────────────────────────",
+      "Powered by KrishiSense — AI Farming Intelligence for India",
+      "Soil data: SoilGrids | Satellite: NASA MODIS | AI: Gemini 2.5",
+    ];
+    const text = lines.join("\n");
+    if (navigator.share) {
+      navigator.share({ title: "KrishiSense Land Scan", text }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(text)
+        .then(() => showToast("Report copied ✓"))
+        .catch(() => alert(text));
+    }
+  };
+
+  const reset = () => {
+    setPhase("idle");
+    setSoil(null);
+    setRec(null);
+    setImgPrev(null);
     setIsSaved(false);
     setSaving(false);
+    setUsingCache(false);
+    setRealSoilData(false);
+    setShowConf(false);
     setNdviData(null);
     setNdvi(null);
     setNdviImage(null);
@@ -1027,9 +1125,35 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 10, color: C.mut }}>Recommended Crop</div>
+                {usingCache && (
+                  <div style={{ fontSize: 9, color: C.amber, fontWeight: 700, marginBottom: 2 }}>
+                    📦 Showing last known data
+                  </div>
+                )}
+                {demoMode && (
+                  <div style={{ fontSize: 9, color: C.blue, fontWeight: 700, marginBottom: 2 }}>
+                    🎭 Demo Mode
+                  </div>
+                )}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 2 }}>
                   <div style={{ fontSize: 26, fontWeight: 800, color: C.primary }}>{rec.crop}</div>
-                  <Badge text={`${rec.confidence}% Suitability`} color={C.p3} />
+                  <div style={{ position: "relative" }}>
+                    <button
+                      onClick={() => setShowConf(v => !v)}
+                      style={{
+                        background: (rec._confidence || rec.confidence) >= 85 ? C.p3 : (rec._confidence || rec.confidence) >= 70 ? C.amber : C.red,
+                        color: "white", border: "none", borderRadius: 99,
+                        padding: "3px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer"
+                      }}
+                    >
+                      {rec._confidence || rec.confidence}% ★
+                    </button>
+                    {showConf && rec._breakdown && (
+                      <div style={{ position: "absolute", top: 28, left: 0, zIndex: 20, background: C.surface, border: `1px solid ${C.brd}`, borderRadius: 10, padding: "8px 12px", fontSize: 10, color: C.txt2, whiteSpace: "nowrap", boxShadow: C.shadowMd }}>
+                        {rec._breakdown}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div style={{ fontSize: 11, color: C.txt2, lineHeight: 1.5, marginTop: 4 }}>{rec.reason}</div>
               </div>
@@ -1059,6 +1183,12 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                 🔊 Listen
               </button>
               <button
+                onClick={handleShareSoilReport}
+                style={{ flex: 1, padding: "12px", borderRadius: 12, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+              >
+                Share →
+              </button>
+              <button
                 onClick={handleSaveReport}
                 disabled={isSaved || saving}
                 style={{
@@ -1081,6 +1211,18 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                 {saving ? "⏳ Saving..." : isSaved ? "✓ Saved to History" : "💾 Save to History"}
               </button>
             </div>
+            <button
+              onClick={() => setShowPortfolio(true)}
+              style={{
+                width: "100%", marginTop: 10, padding: "12px",
+                borderRadius: 12, border: "none",
+                background: "linear-gradient(135deg, #1565C0, #1976D2)",
+                color: "white", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              📊 Optimise My Portfolio
+            </button>
           </Card>
 
           {/* Action plan */}
@@ -1407,6 +1549,17 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Portfolio Optimizer Bottom Sheet ── */}
+      {showPortfolio && (
+        <PortfolioOptimizer
+          rec={rec}
+          soil={soil}
+          loc={loc}
+          user={user}
+          onClose={() => setShowPortfolio(false)}
+        />
       )}
     </div>
   );

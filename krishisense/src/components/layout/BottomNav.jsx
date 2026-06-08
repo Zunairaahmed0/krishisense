@@ -1,4 +1,4 @@
-import { Home, MapPin, Leaf, ShoppingCart, Droplets } from "lucide-react";
+import { Home, MapPin, Leaf, ShoppingCart, FileCheck } from "lucide-react";
 import { C } from "../../constants/theme";
 
 const TABS = [
@@ -6,7 +6,7 @@ const TABS = [
   { id: "land",    Icon: MapPin,       label: "LAND"    },
   { id: "grow",    Icon: Leaf,         label: "GROW"    },
   { id: "sell",    Icon: ShoppingCart, label: "SELL"    },
-  { id: "sustain", Icon: Droplets,     label: "SUSTAIN" },
+  { id: "schemes", Icon: FileCheck,    label: "SCHEMES" },
 ];
 
 export default function BottomNav({ tab, setTab }) {

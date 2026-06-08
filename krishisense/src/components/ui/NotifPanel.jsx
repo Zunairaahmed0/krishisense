@@ -1,10 +1,37 @@
-import { X, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { X, RefreshCw, Bell } from "lucide-react";
 import { C } from "../../constants/theme";
 import Spinner from "./Spinner";
 
 const TYPE_COLOR = { weather: C.blue, farm: C.p3, market: C.amber, advisory: "#8B5CF6", scan: C.p2 };
 
-export default function NotifPanel({ notifications, loading, onClose, onRefresh }) {
+const BACKEND = (import.meta.env.VITE_BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
+
+export default function NotifPanel({ notifications, loading, onClose, onRefresh, fcmToken, onEnableNotifications }) {
+  const [sending, setSending] = useState(null);
+
+  const triggerDemo = async (type) => {
+    const token = fcmToken || localStorage.getItem("ks_fcm_token");
+    if (!token) {
+      if (onEnableNotifications) onEnableNotifications();
+      return;
+    }
+    setSending(type);
+    try {
+      await fetch(`${BACKEND}/api/alerts/demo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fcmToken: token, alertType: type }),
+      });
+    } catch (e) {
+      alert("Demo trigger failed — is the backend running?\n" + e.message);
+    } finally {
+      setSending(null);
+    }
+  };
+
+  const hasToken = !!(fcmToken || localStorage.getItem("ks_fcm_token"));
+
   return (
     <>
       <div onClick={onClose} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.42)",backdropFilter:"blur(4px)",zIndex:9000 }} />
@@ -26,6 +53,41 @@ export default function NotifPanel({ notifications, loading, onClose, onRefresh 
               <X size={13} color={C.mut} />
             </button>
           </div>
+        </div>
+
+        {/* Enable push notifications banner */}
+        {!hasToken && (
+          <div style={{ padding:"10px 12px", background:"#EFF6FF", borderBottom:`1px solid #BFDBFE`, display:"flex", alignItems:"center", gap:10 }}>
+            <Bell size={16} color="#1D4ED8" style={{ flexShrink:0 }} />
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:11, fontWeight:700, color:"#1E40AF" }}>Push notifications off</div>
+              <div style={{ fontSize:10, color:"#3B82F6" }}>Enable to receive real farm alerts on your phone</div>
+            </div>
+            <button
+              onClick={onEnableNotifications}
+              style={{ padding:"5px 10px", borderRadius:8, border:"none", background:"#1D4ED8", color:"#fff", fontSize:10, fontWeight:700, cursor:"pointer", flexShrink:0 }}>
+              Enable
+            </button>
+          </div>
+        )}
+
+        {/* Demo trigger buttons */}
+        <div style={{ padding:"10px 12px", display:"flex", gap:6, flexWrap:"wrap", borderBottom:`1px solid ${C.brd}`, background:C.surface }}>
+          <div style={{ width:"100%", fontSize:9, fontWeight:700, color:C.mut, marginBottom:2, letterSpacing:0.5 }}>
+            DEMO TRIGGERS {hasToken ? <span style={{ color:C.p3 }}>● LIVE</span> : <span style={{ color:C.red }}>● NO TOKEN</span>}
+          </div>
+          <button onClick={() => triggerDemo("early_blight")} disabled={sending === "early_blight"}
+            style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${C.amber}`, background:"#FEF3C7", color:"#B45309", fontSize:10, fontWeight:700, cursor:"pointer", opacity: sending === "early_blight" ? 0.6 : 1 }}>
+            {sending === "early_blight" ? "Sending…" : "🧪 Disease Alert"}
+          </button>
+          <button onClick={() => triggerDemo("outbreak")} disabled={sending === "outbreak"}
+            style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${C.red}`, background:"#FEE2E2", color:"#B91C1C", fontSize:10, fontWeight:700, cursor:"pointer", opacity: sending === "outbreak" ? 0.6 : 1 }}>
+            {sending === "outbreak" ? "Sending…" : "🚨 Outbreak"}
+          </button>
+          <button onClick={() => triggerDemo("market")} disabled={sending === "market"}
+            style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${C.p2}`, background:"#E8F5E9", color:C.p2, fontSize:10, fontWeight:700, cursor:"pointer", opacity: sending === "market" ? 0.6 : 1 }}>
+            {sending === "market" ? "Sending…" : "📈 Market"}
+          </button>
         </div>
 
         {/* List */}

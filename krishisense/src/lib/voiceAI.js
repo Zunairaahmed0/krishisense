@@ -26,54 +26,47 @@ export const getLang = (state) =>
 export const detectLanguage = (text) => {
   if (!text) return { code: "en-US", name: "English" };
 
-  // 1. Check for Devanagari script range
-  const hasDevanagari = /[\u0900-\u097F]/.test(text);
+  // Script-range checks — non-Devanagari Indian scripts (unambiguous, check first)
+  if (/[ఀ-౿]/.test(text)) return { code: "te-IN", name: "Telugu"    };
+  if (/[ಀ-೿]/.test(text)) return { code: "kn-IN", name: "Kannada"   };
+  if (/[஀-௿]/.test(text)) return { code: "ta-IN", name: "Tamil"     };
+  if (/[઀-૿]/.test(text)) return { code: "gu-IN", name: "Gujarati"  };
+  if (/[ঀ-৿]/.test(text)) return { code: "bn-IN", name: "Bengali"   };
+  if (/[਀-੿]/.test(text)) return { code: "pa-IN", name: "Punjabi"   };
+  if (/[ഀ-ൿ]/.test(text)) return { code: "ml-IN", name: "Malayalam" };
 
-  if (hasDevanagari) {
-    // Unique Marathi character: ळ (\u0933)
-    const isMarathiChar = /[\u0933]/.test(text);
+  // Devanagari (Hindi vs Marathi) — disambiguate by keyword scoring
+  if (/[ऀ-ॿ]/.test(text)) {
+    // ळ = ळ — phoneme unique to Marathi (not used in standard Hindi)
+    const isMarathiChar = /ळ/.test(text);
 
-    // Common structural auxiliary words in Marathi
     const marathiKeywords = [
-      /\bआहे\b/, /\bआहेत\b/, /\bनाही\b/, /\bकाय\b/, /\bकसे\b/, /\bमाझे\b/, /\bतुमचे\b/,
-      /\bशेती\b/, /\bपीक\b/, /\bझाले\b/, /\bकरून\b/, /\bआहेस\b/, /\bहोता\b/, /\bझाली\b/,
-      /\bपाहिजे\b/, /\bनको\b/, /\bसाठी\b/, /\bसोबत\b/, /\bकरू\b/, /\bझालेलं\b/
+      "आहे", "आहेत", "नाही", "काय", "कसे", "माझे", "तुमचे",
+      "शेती", "पीक", "झाले", "झाली", "करून", "होते", "असतो",
+      "पाहिजे", "नको", "साठी", "करायचे", "सांगा", "बघा",
+      "काळजी", "पावसाळा", "विचारतो", "करू", "झालेलं", "सोबत",
     ];
-
-    // Common structural auxiliary words in Hindi
     const hindiKeywords = [
-      /\bहै\b/, /\bहैं\b/, /\bनहीं\b/, /\bक्या\b/, /\bकैसे\b/, /\bमेरा\b/, /\bआपका\b/,
-      /\bखेती\b/, /\bफसल\b/, /\bहुआ\b/, /\bकरके\b/, /\bहोता\b/, /\bचाहिए\b/, /\bमत\b/,
-      /\bके\s+लिए\b/, /\bसाथ\b/, /\bकरें\b/
+      "है", "हैं", "नहीं", "क्या", "कैसे", "मेरा", "आपका",
+      "खेती", "फसल", "किसान", "हुआ", "करके", "होगा", "चाहिए",
+      "बताइए", "करना", "बोलिए", "पूछना", "देखिए", "समझाइए",
+      "साथ", "करें", "चिंता", "बिल्कुल",
     ];
 
-    let marathiScore = isMarathiChar ? 6 : 0;
-    let hindiScore = 0;
+    let mr = isMarathiChar ? 6 : 0;
+    let hi = 0;
+    marathiKeywords.forEach(w => { if (text.includes(w)) mr += 2; });
+    hindiKeywords.forEach(w   => { if (text.includes(w)) hi += 2; });
 
-    marathiKeywords.forEach((regex) => {
-      if (regex.test(text)) marathiScore += 2;
-    });
+    // Phrase-level tiebreakers
+    if (text.includes("करू नका") || text.includes("बरोबर") || text.includes("काळजी")) mr += 4;
+    if (text.includes("मत करो")  || text.includes("बिल्कुल") || text.includes("चिंता"))  hi += 4;
 
-    hindiKeywords.forEach((regex) => {
-      if (regex.test(text)) hindiScore += 2;
-    });
-
-    // Special matching heuristics
-    if (text.includes("करू नका") || text.includes("काळजी") || text.includes("बरोबर")) {
-      marathiScore += 4;
-    }
-    if (text.includes("मत करो") || text.includes("चिंता") || text.includes("बिल्कुल")) {
-      hindiScore += 4;
-    }
-
-    if (marathiScore > hindiScore) {
-      return { code: "mr-IN", name: "Marathi" };
-    } else {
-      return { code: "hi-IN", name: "Hindi" };
-    }
+    return mr > hi
+      ? { code: "mr-IN", name: "Marathi" }
+      : { code: "hi-IN", name: "Hindi"   };
   }
 
-  // Default to English
   return { code: "en-US", name: "English" };
 };
 
@@ -124,7 +117,7 @@ export const startListening = (langCode, onResult, onEnd, onError) => {
   }
 
   const rec = new SpeechRecognition();
-  rec.lang              = langCode;   // e.g. "mr-IN"
+  rec.lang              = langCode;
   rec.continuous        = false;
   rec.interimResults    = true;
   rec.maxAlternatives   = 1;
@@ -147,68 +140,40 @@ export const startListening = (langCode, onResult, onEnd, onError) => {
 export const speakResponse = (text, langCode, onStart, onEnd) => {
   if (!window.speechSynthesis) return;
 
-  // Cancel any active speech first
   window.speechSynthesis.cancel();
 
-  // Auto-detect language dynamically from the text to verify/select correct accent!
-  const detected = detectLanguage(text);
+  const detected   = detectLanguage(text);
   const targetLang = langCode || detected.code;
 
   const utter     = new SpeechSynthesisUtterance(text);
   utter.lang      = targetLang;
-
-  // Store utterance globally to prevent garbage collection in Chrome/mobile browsers
   window.activeUtterance = utter;
 
-  // Default natural speaking rates
-  let rate = 0.88;
+  let rate  = 0.88;
   let pitch = 1.03;
 
-  // Heuristic emotional trigger words & punctuation
   const isUrgent = /[!！]/.test(text) ||
     /Warning|danger|urgent|alert|stop|avoid|prevent|सावधान|खतरा|नुकसान|त्वरित|घबराएं|बधाई|अभिनंदन|काळजी घ्या/gi.test(text);
-
   const isComforting = /don't worry|no problem|safe|helper|friend|चिंता मत|काळजी करू|काळजी नसावी|काळजी नको|घाबरू नका|निश्चिंत|ठीक हो|मदद/gi.test(text);
-
   const isQuestion = /[?？]/.test(text);
 
-  if (isUrgent) {
-    rate = 0.98;   // Slightly faster to convey importance
-    pitch = 1.12;  // Higher pitch
-  } else if (isComforting) {
-    rate = 0.80;   // Slower, calming pace
-    pitch = 0.96;  // Warmer, lower pitch
-  } else if (isQuestion) {
-    rate = 0.88;
-    pitch = 1.07;  // Slightly elevated questioning tone
-  }
+  if      (isUrgent)     { rate = 0.98; pitch = 1.12; }
+  else if (isComforting) { rate = 0.80; pitch = 0.96; }
+  else if (isQuestion)   { rate = 0.88; pitch = 1.07; }
 
-  utter.rate = rate;
+  utter.rate  = rate;
   utter.pitch = pitch;
 
-  // Try to find a natural voice for the language
   const voices = window.speechSynthesis.getVoices();
   const match  = voices.find(
     (v) => v.lang === targetLang || v.lang.startsWith(targetLang.split("-")[0])
   );
   if (match) utter.voice = match;
 
-  const cleanUpAndFinish = () => {
-    window.activeUtterance = null;
-    if (onEnd) onEnd();
-  };
+  const done = () => { window.activeUtterance = null; if (onEnd) onEnd(); };
+  utter.onstart = () => { if (onStart) onStart(); };
+  utter.onend   = done;
+  utter.onerror = done;
 
-  utter.onstart = () => {
-    if (onStart) onStart();
-  };
-  utter.onend   = cleanUpAndFinish;
-  utter.onerror = cleanUpAndFinish;
-
-  // A brief 50ms pause after cancel() allows the audio channel to flush cleanly,
-  // preventing premature speech cutoffs or hardware channel blocks.
-  setTimeout(() => {
-    if (window.speechSynthesis) {
-      window.speechSynthesis.speak(utter);
-    }
-  }, 50);
+  setTimeout(() => { if (window.speechSynthesis) window.speechSynthesis.speak(utter); }, 50);
 };

@@ -97,6 +97,8 @@ if (isRealFirebase) {
   };
 }
 
+export { appInstance as firebaseApp };
+
 export const firebaseCore = {
   isRealFirebase,
   auth: authInstance,
@@ -179,6 +181,10 @@ export const firebaseCore = {
   // Real or emulated Phone Authentication OTP trigger
   async sendPhoneOTP(phoneNumber, recaptchaContainerId) {
     if (isRealFirebase) {
+      // Verify container exists before initializing RecaptchaVerifier
+      if (!document.getElementById(recaptchaContainerId)) {
+        throw new Error(`Recaptcha container '#${recaptchaContainerId}' not found in DOM. Ensure the element is mounted before calling sendPhoneOTP.`);
+      }
       // Configure Firebase Recaptcha
       const verifier = new RecaptchaVerifier(authInstance, recaptchaContainerId, {
         size: "invisible"

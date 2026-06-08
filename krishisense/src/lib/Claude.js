@@ -8,7 +8,7 @@
  * using VITE_GEMINI_KEY so development still works without a running backend.
  */
 
-const BACKEND_URL  = import.meta.env.VITE_BACKEND_URL;   // e.g. https://krishisense-api.onrender.com
+const BACKEND_URL  = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");   // e.g. https://krishisense-api.onrender.com
 const GEMINI_KEY   = import.meta.env.VITE_GEMINI_KEY;    // only used in local dev fallback
 
 const DIRECT_MODELS = [

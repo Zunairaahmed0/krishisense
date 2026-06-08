@@ -1,20 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { DemoCtx } from "./lib/demoMode";
 import { Bell, Loader2, Phone, Volume2, VolumeX, LogOut } from "lucide-react";
 import { C } from "./constants/theme";
 import Header from "./components/layout/Header";
 import BottomNav from "./components/layout/BottomNav";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
+import ExpertCallPanel from "./components/advisor/ExpertCallPanel";
 import HomeTab from "./tabs/HomeTab";
 import LandTab from "./tabs/LandTab";
 import GrowTab from "./tabs/GrowTab";
 import SellTab from "./tabs/SellTab";
 import SustainTab from "./tabs/SustainTab";
+import SchemesTab from "./tabs/SchemesTab";
 import AuthScreen from "./components/auth/AuthScreen";
 import MenuDrawer from "./components/ui/MenuDrawer";
 import NotifPanel from "./components/ui/NotifPanel";
+import ErrorBoundary from "./components/ui/ErrorBoundary";
+import Toast, { useToast } from "./components/ui/Toast";
 import { api } from "./lib/api";
 import { askAI } from "./lib/ai";
 import { parseJSON } from "./lib/utils";
+import { firebaseApp } from "./lib/firebase";
+import { initNotifications, getNotificationStatus } from "./lib/notifications";
+import AlertBanner from "./components/ui/AlertBanner";
 import "./index.css";
 
 // ── Asset imports ──────────────────────────────────────────────────────────
@@ -41,12 +49,35 @@ export default function App() {
   const [lang,       setLang]       = useState("en");
   const [voiceOn,    setVoiceOn]    = useState(false);
   const [advisor,    setAdvisor]    = useState(false);
+  const [expertCall, setExpertCall] = useState(false);
   const [menuOpen,   setMenuOpen]   = useState(false);
   const [notifOpen,  setNotifOpen]  = useState(false);
+  const [demoMode,         setDemoMode]         = useState(false);
+  const [backendAvailable, setBackendAvailable] = useState(true);
+  const demoTapRef   = useRef(0);
+  const demoTapTimer = useRef(null);
+  const { showToast } = useToast();
   const [notifications, setNotifications] = useState([]);
   const [notifLoading, setNotifLoading] = useState(false);
   const notifGeneratedRef = useRef(false);
+  const [fcmToken, setFcmToken] = useState(null);
+  const [notifPermission, setNotifPermission] = useState("default");
   
+  // ── Demo Mode: tap logo 5× quickly ──────────────────────────────────────
+  const handleLogoTap = useCallback(() => {
+    demoTapRef.current += 1;
+    clearTimeout(demoTapTimer.current);
+    demoTapTimer.current = setTimeout(() => { demoTapRef.current = 0; }, 900);
+    if (demoTapRef.current >= 5) {
+      demoTapRef.current = 0;
+      setDemoMode(prev => {
+        const next = !prev;
+        showToast(next ? "🎭 Demo Mode ON — showing sample data" : "✅ Demo Mode OFF — live data restored", next ? "info" : "success");
+        return next;
+      });
+    }
+  }, []);
+
   // Location manual search and coordinates overrides
   const [isManualLoc, setIsManualLoc] = useState(false);
   const [locModalOpen, setLocModalOpen] = useState(false);
@@ -299,6 +330,74 @@ export default function App() {
     }
   }, [user, fetchScans]);
 
+  // Callable from anywhere — requests permission + gets FCM token
+  const enableNotifications = useCallback(async () => {
+    if (!user || !firebaseApp) return;
+    const result = await initNotifications(firebaseApp, user.uid);
+    console.log("[FCM] init result:", result);
+    if (result.token) {
+      setFcmToken(result.token);
+      setNotifPermission("granted");
+      localStorage.setItem("ks_fcm_token", result.token);
+      showToast("Push notifications enabled ✓", "success");
+    } else if (result.error === "permission_denied") {
+      showToast("Notification permission denied — allow it in browser settings", "error");
+    } else if (result.error === "sw_failed") {
+      showToast("Service worker failed: " + result.detail, "error");
+    } else if (result.error === "token_failed") {
+      showToast("FCM token error: " + result.detail, "error");
+    } else if (result.error === "no_token") {
+      showToast("FCM returned no token — check VAPID key", "error");
+    } else if (!result.supported) {
+      showToast("Push notifications not supported in this browser", "error");
+    }
+  }, [user, showToast]);
+
+  // Initialize FCM push notifications silently after login
+  useEffect(() => {
+    if (!user || !firebaseApp) return;
+    const status = getNotificationStatus();
+    setNotifPermission(status);
+    if (status === "granted") enableNotifications();
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check for weather-based disease/heat alerts after weather loads
+  useEffect(() => {
+    if (!weather || !loc || !user) return;
+    const checkAlerts = async () => {
+      try {
+        const lastSoilScan = scans?.find((s) => s.type === "soil");
+        const crops = lastSoilScan?.data?.rec?.crop ? [lastSoilScan.data.rec.crop] : [];
+        const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
+        if (!backendUrl) return;
+        await fetch(`${backendUrl}/api/alerts/check`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.uid,
+            weather: { ...weather.current, ...weather.daily },
+            loc: { name: loc.name, state: loc.state },
+            crops,
+            fcmToken,
+          }),
+        });
+      } catch (e) {
+        console.warn("Alert check failed silently:", e.message);
+      }
+    };
+    const timer = setTimeout(checkAlerts, 5000);
+    return () => clearTimeout(timer);
+  }, [weather, loc, user, fcmToken, scans]);
+
+  // Backend health check — runs once on mount
+  useEffect(() => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
+    if (!backendUrl) return;
+    fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) })
+      .then(r => { if (!r.ok) throw new Error("not ok"); })
+      .catch(() => setBackendAvailable(false));
+  }, []);
+
   // Tab-specific headers
   const TAB_HEADERS = {
     home:    { logo: true },
@@ -306,6 +405,7 @@ export default function App() {
     grow:    { title: "AI Crop Health Monitor",   subtitle: "Detect diseases early" },
     sell:    { title: "Smart Selling Insights",   subtitle: "AI-powered market intelligence" },
     sustain: { title: "SUSTAIN",                  subtitle: "Sustainable Farming • Save Resources" },
+    schemes: { title: "Government Schemes",       subtitle: "Benefits you qualify for" },
   };
 
   const hdr = TAB_HEADERS[tab] || {};
@@ -364,6 +464,7 @@ export default function App() {
   }
 
   return (
+    <DemoCtx.Provider value={demoMode}>
     <div className="app-shell" style={{
       fontFamily:   "'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       background:   C.bg,
@@ -376,6 +477,9 @@ export default function App() {
       overflowX:    "hidden",
       boxShadow:    "0 0 0 1px rgba(18,60,44,0.06), 0 24px 80px rgba(18,60,44,0.16)",
     }}>
+      {/* ── Foreground push alert banners ── */}
+      <AlertBanner firebaseApp={firebaseApp} />
+
       {/* ── Header ── */}
       <Header
         title={hdr.title}
@@ -383,6 +487,7 @@ export default function App() {
         logoSrc={hdr.logo ? logoImg : undefined}
         showBack={tab !== "home"}
         onBack={() => setTab("home")}
+        onLogoTap={handleLogoTap}
         notifications={notifications.length}
         onMenuClick={() => setMenuOpen(true)}
         onBellClick={() => {
@@ -429,8 +534,20 @@ export default function App() {
         }
       />
 
+      {/* ── Backend offline banner ── */}
+      {!backendAvailable && (
+        <div style={{
+          background: "#FFF3E0", borderBottom: "1px solid #FFE0B2",
+          padding: "6px 16px", fontSize: 11, fontWeight: 700, color: "#E65100",
+          display: "flex", alignItems: "center", gap: 6,
+        }}>
+          ⚠️ Backend offline — using direct AI mode
+        </div>
+      )}
+
       {/* ── Page Content ── */}
       <div key={tab} className="page-enter" style={{ paddingBottom: 88 }}>
+        <ErrorBoundary key={tab}>
         {tab === "home" && (
           <HomeTab user={user} weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} setTab={setTab}
             heroImg={heroScanImg} botImg={botImg} lang={lang} scans={scans} voiceOn={voiceOn} onLocationClick={() => setLocModalOpen(true)} />
@@ -438,12 +555,13 @@ export default function App() {
         {tab === "land" && (
           <LandTab loc={loc} locError={locError} weather={weather}
             landAerialImg={landAerialImg} onionsImg={onionsImg} lang={lang} voiceOn={voiceOn}
-            scans={scans} loadingScans={loadingScans} onScanSaved={fetchScans} onScanDeleted={fetchScans} 
-            onLocationClick={() => setLocModalOpen(true)} />
+            scans={scans} loadingScans={loadingScans} onScanSaved={fetchScans} onScanDeleted={fetchScans}
+            onLocationClick={() => setLocModalOpen(true)} user={user} />
         )}
         {tab === "grow" && (
           <GrowTab weather={weather} weatherLoading={weatherLoading} voiceOn={voiceOn} lang={lang} botImg={botImg}
-            scans={scans} loadingScans={loadingScans} onScanSaved={fetchScans} onScanDeleted={fetchScans} />
+            scans={scans} loadingScans={loadingScans} onScanSaved={fetchScans} onScanDeleted={fetchScans}
+            loc={loc} user={user} fcmToken={fcmToken} />
         )}
         {tab === "sell" && (
           <SellTab loc={loc} voiceOn={voiceOn} lang={lang} onionsImg={onionsImg} />
@@ -451,16 +569,20 @@ export default function App() {
         {tab === "sustain" && (
           <SustainTab weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} botImg={botImg} voiceOn={voiceOn} lang={lang} />
         )}
+        {tab === "schemes" && (
+          <SchemesTab user={user} />
+        )}
+        </ErrorBoundary>
       </div>
 
       {/* ── Bottom Nav ── */}
       <BottomNav tab={tab} setTab={setTab} />
 
-      {/* ── AI Advisor FAB ── */}
+      {/* ── Expert Call FAB ── */}
       {tab !== "sustain" && (
         <button
           className="fab"
-          onClick={() => setAdvisor(true)}
+          onClick={() => setExpertCall(true)}
           style={{
             width:          54,
             height:         54,
@@ -480,7 +602,17 @@ export default function App() {
         </button>
       )}
 
-      {/* ── AI Advisor Panel ── */}
+      {/* ── Expert Voice Call Panel (Groq Whisper + Sarvam TTS) ── */}
+      {expertCall && (
+        <ExpertCallPanel
+          onClose={() => setExpertCall(false)}
+          loc={loc}
+          weather={weather}
+          botImg={botImg}
+        />
+      )}
+
+      {/* ── AI Advisor Panel (text chat fallback) ── */}
       {advisor && (
         <AdvisorPanel
           onClose={() => setAdvisor(false)}
@@ -531,8 +663,13 @@ export default function App() {
           loading={notifLoading}
           onClose={() => setNotifOpen(false)}
           onRefresh={() => { notifGeneratedRef.current = false; generateNotifications(); }}
+          fcmToken={fcmToken}
+          onEnableNotifications={enableNotifications}
         />
       )}
+
+      <Toast />
     </div>
+    </DemoCtx.Provider>
   );
 }

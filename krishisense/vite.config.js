@@ -6,4 +6,13 @@ export default defineConfig({
   optimizeDeps: {
     include: ['react-is'],
   },
+  server: {
+    proxy: {
+      "/modis": {
+        target: "https://modis.ornl.gov",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/modis/, ""),
+      },
+    },
+  },
 })

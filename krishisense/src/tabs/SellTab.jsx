@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useDemoMode } from "../lib/demoMode";
+import { DEMO_MARKET } from "../lib/demoData";
 import { ChevronRight, CheckCircle } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { C } from "../constants/theme";
@@ -15,6 +17,7 @@ import LiveDot from "../components/ui/LiveDot";
 const CROP_EMOJIS = { Onion: "🧅", Tomato: "🍅", Wheat: "🌾", Cotton: "🌿", Rice: "🌾" };
 
 export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
+  const demoMode = useDemoMode();
   const [crop, setCrop] = useState("Onion");
   const [marketData, setMarketData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -74,6 +77,14 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
 
   // 2. Fetch live grounded market intelligence using Google Gemini Search Grounding
   const fetchLiveMarketData = async (selectedCrop) => {
+    // ── Demo mode: instant market data ────────────────────────────────────────
+    if (demoMode) {
+      setMarketData(DEMO_MARKET);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -148,7 +159,7 @@ Based on the real-time search results, generate a single, valid JSON object conf
           forecast: d.p || d.price
         }));
 
-        setMarketData({
+        const mktData = {
           latestPrice: parsed.latestPrice,
           trendPercent: parsed.trendPercent || 0,
           isUp: parseFloat(parsed.trendPercent || 0) >= 0,
@@ -164,7 +175,9 @@ Based on the real-time search results, generate a single, valid JSON object conf
             confidence: 90,
             percent: 0
           }
-        });
+        };
+        setMarketData(mktData);
+        try { localStorage.setItem("ks_last_market", JSON.stringify(mktData)); } catch {}
 
         // Trigger dynamic voice output
         const rec = parsed.recommendation;
@@ -178,9 +191,19 @@ Based on the real-time search results, generate a single, valid JSON object conf
         throw new Error("Invalid pricing payload structure returned");
       }
     } catch (e) {
-      console.warn("Real-time grounding fetch failed, employing high-quality local model:", e);
-      setError("Search Grounding rate-limited. Loaded standard local pricing model instead.");
-      
+      console.warn("Real-time grounding fetch failed:", e);
+      // Try localStorage cache before falling back to static data
+      try {
+        const cached = JSON.parse(localStorage.getItem("ks_last_market") || "null");
+        if (cached?.latestPrice) {
+          setMarketData(cached);
+          setError("Showing last known market data — refresh for live prices.");
+          setLoading(false);
+          return;
+        }
+      } catch {}
+      setError("Market data temporarily unavailable. Showing estimated prices.");
+
       const fallback = getFallbackData(selectedCrop);
       setMarketData(fallback);
 

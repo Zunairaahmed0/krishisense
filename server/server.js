@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { evaluateAlerts } from "./lib/alertEngine.js";
+import { sendAlertToUser, isAdminReady, getAdminFirestore } from "./lib/fcmSender.js";
 
 dotenv.config();
 
@@ -8,16 +10,25 @@ const app  = express();
 const PORT = process.env.PORT || 5000;
 
 // ── CORS ───────────────────────────────────────────────────────────────────────
+const normalizeOrigin = (value) => {
+  if (!value) return "";
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value.replace(/\/+$/, "");
+  }
+};
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4173",
-  process.env.FRONTEND_URL, // set this on Render to your Firebase Hosting URL
-].filter(Boolean);
+  ...(process.env.FRONTEND_URL || "").split(","), // set this on Render to your Vercel URL(s)
+].map(normalizeOrigin).filter(Boolean);
 
 app.use(cors({
   origin: (origin, cb) => {
     // Allow requests with no origin (mobile apps, Postman, curl)
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) return cb(null, true);
     cb(new Error(`CORS: ${origin} not allowed`));
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -206,6 +217,112 @@ app.post("/api/scans", authenticate, (req, res) => {
 
 app.get("/api/scans", authenticate, (req, res) => {
   res.json(db.getScansByUserId(req.user.id));
+});
+
+// ── Check and send weather-based alerts for a specific farmer ─────────────────
+app.post("/api/alerts/check", rateLimit(30, 60_000), async (req, res) => {
+  const { userId, weather, loc, crops, fcmToken } = req.body;
+  if (!weather || !loc) return res.status(400).json({ error: "weather and loc required" });
+
+  const alerts = evaluateAlerts(weather, loc, crops || []);
+  if (!alerts.length) {
+    return res.json({ alerts: [], sent: 0, message: "No alerts for current conditions" });
+  }
+
+  let sent = 0;
+  if (fcmToken && isAdminReady()) {
+    for (const alert of alerts.filter((a) => a.severity !== "info")) {
+      const ok = await sendAlertToUser(fcmToken, alert);
+      if (ok) sent++;
+    }
+  }
+
+  res.json({ alerts, sent });
+});
+
+// ── Regional outbreak alert — triggered when multiple farms detect same disease ─
+app.post("/api/alerts/outbreak", rateLimit(10, 60_000), async (req, res) => {
+  const { diseaseName, loc, detectedByUserId } = req.body;
+  if (!diseaseName || !loc) return res.status(400).json({ error: "required fields missing" });
+
+  try {
+    const db = getAdminFirestore();
+
+    const weekAgo    = new Date(Date.now() - 7 * 86400000).toISOString();
+    const scansSnap  = await db.collection("scans")
+      .where("type",         "==", "leaf")
+      .where("data.disease", "==", diseaseName)
+      .where("date",         ">=", weekAgo)
+      .get();
+
+    const count = scansSnap.size;
+    if (count < 3) {
+      return res.json({ outbreakDetected: false, count, message: "Insufficient cases for outbreak alert" });
+    }
+
+    const outbreakAlert = {
+      title:     `🚨 ${diseaseName} Outbreak in Your Region`,
+      body:      `${count} farms in your area have detected ${diseaseName} in the last 7 days. Your crops may be at risk even with no visible symptoms yet.`,
+      action:    `Apply preventive fungicide immediately. Check KrishiSense GROW tab for the full treatment protocol.`,
+      alertType: "outbreak_" + diseaseName.toLowerCase().replace(/\s/g, "_"),
+      severity:  "critical",
+      targetUrl: "/?tab=grow",
+    };
+
+    const tokenSnap = await db.collection("fcmTokens").where("active", "==", true).get();
+    const tokens    = tokenSnap.docs.map((d) => d.data().token).filter(Boolean);
+
+    let sent = 0;
+    for (const token of tokens) {
+      const ok = await sendAlertToUser(token, outbreakAlert);
+      if (ok) sent++;
+    }
+
+    await db.collection("outbreaks").add({
+      disease:         diseaseName,
+      state:           loc.state,
+      detectedCount:   count,
+      alertedFarmers:  sent,
+      triggeredAt:     new Date().toISOString(),
+      triggeredBy:     detectedByUserId,
+    });
+
+    res.json({ outbreakDetected: true, count, sent, alert: outbreakAlert });
+  } catch (e) {
+    console.error("[outbreak]", e.message);
+    res.status(500).json({ error: "Outbreak check failed: " + e.message });
+  }
+});
+
+// ── Manual demo trigger ────────────────────────────────────────────────────────
+app.post("/api/alerts/demo", async (req, res) => {
+  const { fcmToken, alertType = "early_blight" } = req.body;
+  if (!fcmToken) return res.status(400).json({ error: "fcmToken required" });
+
+  const DEMO = {
+    early_blight: {
+      title:     "⚠️ Disease Alert — Nashik Region",
+      body:      "Early Blight conditions detected in your area. Humidity 87%, Temp 26°C. 3 nearby farms affected. Preventive spray recommended within 24 hours.",
+      action:    "Spray Mancozeb 75WP at 2.5g/L on leaf undersides today.",
+      alertType: "early_blight", severity: "high", targetUrl: "/?tab=grow",
+    },
+    outbreak: {
+      title:     "🚨 Regional Outbreak — Late Blight Spreading",
+      body:      "6 farms within 45 km have detected Late Blight this week. Critical risk to your Tomato/Potato crops. Act NOW.",
+      action:    "Apply Metalaxyl + Mancozeb immediately. Open app for full protocol.",
+      alertType: "outbreak", severity: "critical", targetUrl: "/?tab=grow",
+    },
+    market: {
+      title:     "📈 Onion Prices Surging — Nashik",
+      body:      "Onion prices at Lasalgaon mandi up 18% this week. ₹24/kg today vs ₹18/kg last week. Good selling window open now.",
+      action:    "3 verified buyers ready. Open SELL tab for direct deals.",
+      alertType: "market_opportunity", severity: "info", targetUrl: "/?tab=sell",
+    },
+  };
+
+  const alert = DEMO[alertType] || DEMO.early_blight;
+  const ok    = await sendAlertToUser(fcmToken, alert);
+  res.json({ sent: ok, alert });
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────
