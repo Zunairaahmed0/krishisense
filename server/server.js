@@ -328,9 +328,9 @@ app.post("/api/alerts/demo", async (req, res) => {
 
 // ── Mandi Prices (data.gov.in / AGMARKNET) ────────────────────────────────────
 app.get("/api/market/prices", rateLimit(30, 60_000), async (req, res) => {
-  const { commodity = "Onion", state = "Maharashtra", district, market } = req.query;
+  const { commodity = "Onion", state = "Maharashtra", district, market, lat, lon } = req.query;
   try {
-    const data = await fetchMandiPrices({ commodity, state, district, market });
+    const data = await fetchMandiPrices({ commodity, state, district, market, lat, lon });
     res.json(data);
   } catch (e) {
     console.error("[mandi prices]", e.message);

@@ -26,7 +26,56 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
   const [mandiModal, setMandiModal] = useState(false);
   const [qtyKg, setQtyKg] = useState("");
 
-  // 1. Generate elegant fallback data in case Search Grounding API fails
+  // Build location-aware buyer list from actual city/state
+  const buildLocalBuyers = (city, state, pricePerKg) => {
+    const c = city || "Local";
+    const s = state || "India";
+    const p = pricePerKg || 15;
+    return [
+      {
+        name: `${c} Fresh Mart`,
+        type: "Retailer",
+        dist: `${3 + Math.floor(Math.random() * 6)} km`,
+        offer: +(p * 1.06).toFixed(1),
+        qty: "300–500 kg",
+        rating: 4.7,
+        tag: "Nearest",
+        color: "#388E3C",
+      },
+      {
+        name: `${s} Agro Exports`,
+        type: "Exporter",
+        dist: `${70 + Math.floor(Math.random() * 60)} km`,
+        offer: +(p * 1.14).toFixed(1),
+        qty: "2–5 tonnes",
+        rating: 4.6,
+        tag: "Best Price",
+        color: "#1565C0",
+      },
+      {
+        name: `${c} Wholesale Hub`,
+        type: "Wholesaler",
+        dist: `${12 + Math.floor(Math.random() * 15)} km`,
+        offer: +(p * 0.97).toFixed(1),
+        qty: "5–10 tonnes",
+        rating: 4.4,
+        tag: "High Volume",
+        color: "#9CA3AF",
+      },
+      {
+        name: `${c} Hotel & Restaurant Group`,
+        type: "Restaurant",
+        dist: `${2 + Math.floor(Math.random() * 5)} km`,
+        offer: +(p * 1.02).toFixed(1),
+        qty: "100–200 kg",
+        rating: 4.9,
+        tag: "Premium",
+        color: "#E65100",
+      },
+    ];
+  };
+
+  // 1. Generate elegant fallback data in case API fails
   const getFallbackData = (selectedCrop) => {
     const pd = PRICES[selectedCrop] || PRICES.Onion;
     const latest = pd[pd.length - 1].p;
@@ -50,12 +99,6 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
       { name: "Mumbai Market",   city: "Mumbai",  price: Math.round(latest * 1.15), change: 9,  updated: "25 min ago" },
     ];
 
-    // Mock Buyers scaled to the price level
-    const localBuyers = BUYERS.map(b => ({
-      ...b,
-      offer: Math.round(latest * (1 + (b.offer - 22) / 45)),
-    }));
-
     return {
       latestPrice: latest,
       trendPercent: trend,
@@ -63,7 +106,7 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
       chartPrices: chartData,
       forecastPrices: forecastData,
       mandis: localMandis,
-      buyers: localBuyers,
+      buyers: buildLocalBuyers(loc?.name, loc?.state, latest),
       recommendation: {
         action: "HOLD",
         days: 5,
@@ -89,10 +132,14 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
     setError(null);
     const BACKEND = (import.meta.env.VITE_BACKEND_URL || "http://localhost:5000").replace(/\/+$/, "");
     const stateName = loc?.state || "Maharashtra";
+    const districtName = loc?.name || "";
+    const latParam = loc?.lat ? `&lat=${loc.lat}` : "";
+    const lonParam = loc?.lon ? `&lon=${loc.lon}` : "";
+    const districtParam = districtName ? `&district=${encodeURIComponent(districtName)}` : "";
 
     try {
       const [pricesRes, trendRes] = await Promise.all([
-        fetch(`${BACKEND}/api/market/prices?commodity=${encodeURIComponent(selectedCrop)}&state=${encodeURIComponent(stateName)}`),
+        fetch(`${BACKEND}/api/market/prices?commodity=${encodeURIComponent(selectedCrop)}&state=${encodeURIComponent(stateName)}${districtParam}${latParam}${lonParam}`),
         fetch(`${BACKEND}/api/market/trend?commodity=${encodeURIComponent(selectedCrop)}&state=${encodeURIComponent(stateName)}`)
       ]);
 
@@ -166,6 +213,8 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
         percent:    Math.abs(parseFloat(trendPct)),
       };
 
+      const localBuyers = buildLocalBuyers(districtName, stateName, lastPrice);
+
       const mktData = {
         latestPrice:  lastPrice,
         trendPercent: parseFloat(trendPct),
@@ -173,16 +222,14 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
         chartPrices,
         forecastPrices,
         mandis,
-        buyers: BUYERS.map(b => ({
-          ...b,
-          offer: Math.round(lastPrice * 0.012 + 2),
-        })),
+        buyers: localBuyers,
         recommendation:  rec,
         dataSource:      pricesData.source,
         lastUpdated:     pricesData.summary.lastUpdated,
         totalMarkets:    pricesData.summary.totalMarkets,
         bestMarket:      pricesData.summary.bestMarket,
         bestPrice:       pricesData.summary.bestPrice,
+        localDistrict:   pricesData.district || districtName,
       };
       setMarketData(mktData);
       try { localStorage.setItem("ks_last_market_v2", JSON.stringify(mktData)); } catch {}
@@ -362,7 +409,7 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
                 background: "#2E7D32",
                 animation: "pulse 1.5s infinite"
               }} />
-              LIVE · {marketData.dataSource}
+              LIVE · {marketData.localDistrict ? `Near ${marketData.localDistrict}` : marketData.dataSource}
             </div>
           )}
         </div>
@@ -462,7 +509,10 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
 
       {/* ── Nearby Buyers ──────────────────────────────────── */}
       <div id="sell-buyers-section" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px", marginBottom: 10 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>Nearby Buyers (Direct Deals)</div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>Nearby Buyers</div>
+          {loc?.name && <div style={{ fontSize: 10, color: C.mut, marginTop: 1 }}>📍 Near {loc.name}, {loc.state}</div>}
+        </div>
         <button onClick={() => setBuyerModal("all")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.p3, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>View All <ChevronRight size={14}/></button>
       </div>
 

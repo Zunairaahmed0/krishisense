@@ -4,19 +4,7 @@ const BASE = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0
 const priceCache = new Map();
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
-export const fetchMandiPrices = async ({
-  commodity = "Onion",
-  state = "Maharashtra",
-  district = null,
-  market = null,
-  limit = 20
-}) => {
-  const cacheKey = `${commodity}_${state}_${new Date().toDateString()}`;
-  const cached = priceCache.get(cacheKey);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return { ...cached.data, fromCache: true };
-  }
-
+const fetchRaw = async ({ commodity, state, district, market, limit }) => {
   const params = new URLSearchParams({
     "api-key": DATA_GOV_KEY,
     format: "json",
@@ -27,13 +15,41 @@ export const fetchMandiPrices = async ({
   if (district) params.set("filters[district]", district);
   if (market)   params.set("filters[market]", market);
 
-  const res = await fetch(`${BASE}?${params}`, {
-    signal: AbortSignal.timeout(12000)
-  });
+  const res = await fetch(`${BASE}?${params}`, { signal: AbortSignal.timeout(12000) });
   if (!res.ok) throw new Error(`data.gov.in returned ${res.status}`);
-
   const json = await res.json();
-  if (!json.records?.length) throw new Error("No records returned");
+  return json.records || [];
+};
+
+export const fetchMandiPrices = async ({
+  commodity = "Onion",
+  state = "Maharashtra",
+  district = null,
+  market = null,
+  limit = 30,
+}) => {
+  const cacheKey = `${commodity}_${district || state}_${new Date().toDateString()}`;
+  const cached = priceCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return { ...cached.data, fromCache: true };
+  }
+
+  // Try district-filtered first; fall back to state-wide if < 3 local results
+  let rawRecords = [];
+  let usedDistrict = null;
+  if (district) {
+    rawRecords = await fetchRaw({ commodity, state, district, market, limit });
+    if (rawRecords.length >= 3) {
+      usedDistrict = district;
+    } else {
+      // Not enough local results — go state-wide
+      rawRecords = await fetchRaw({ commodity, state, district: null, market, limit });
+    }
+  } else {
+    rawRecords = await fetchRaw({ commodity, state, district: null, market, limit });
+  }
+
+  if (!rawRecords.length) throw new Error("No records returned");
 
   // AGMARKNET returns prices in ₹/quintal (1 quintal = 100 kg)
   // Convert to ₹/kg for display by dividing by 100
@@ -68,6 +84,7 @@ export const fetchMandiPrices = async ({
   const result = {
     commodity,
     state,
+    district: usedDistrict,
     records,
     summary: {
       avgPrice,
