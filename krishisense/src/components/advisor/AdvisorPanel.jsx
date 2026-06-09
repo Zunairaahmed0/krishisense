@@ -154,6 +154,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   const langRef          = useRef(locLang.code);
   const recRef           = useRef(null);
   const bottomRef        = useRef();
+  const lastAIReplyRef   = useRef(""); // echo guard — tracks last spoken reply
 
   // Keep refs in sync with state
   useEffect(() => { speakerRef.current   = speakerEnabled; }, [speakerEnabled]);
@@ -207,6 +208,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     const system = buildPrompt(detectedLang?.name || activeLang.name, loc, weather);
     const reply  = await askAI(userText, system);
     const answer = reply?.trim() || "Sorry, I couldn't connect. Please try again.";
+    lastAIReplyRef.current = answer;
 
     // Evict oldest entry when full
     if (QUERY_CACHE.size >= CACHE_MAX) {
@@ -237,6 +239,20 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
         if (!callActiveRef.current) return;
         setInterim("");
 
+        // Echo guard: discard if transcript overlaps heavily with last AI reply
+        // (mic picks up speaker output immediately after TTS ends)
+        const lastReply = lastAIReplyRef.current;
+        if (lastReply && transcript.trim().length > 8) {
+          const tWords = transcript.toLowerCase().split(/\s+/);
+          const rWords = new Set(lastReply.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+          const overlap = tWords.filter(w => w.length > 3 && rWords.has(w)).length;
+          if (overlap / tWords.length > 0.45) {
+            // Looks like echo — restart listening silently
+            setTimeout(() => { if (callActiveRef.current && !keyboardRef.current) startListening(); }, 600);
+            return;
+          }
+        }
+
         // Detect language from what the farmer said
         const detected = detectLanguage(transcript);
         if (detected.code !== langRef.current) {
@@ -261,8 +277,11 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
           statusRef.current = "speaking";
           setStatus("speaking");
           tts(reply, langRef.current, () => {
-            if (callActiveRef.current && !keyboardRef.current) startListening();
-            else { statusRef.current = "idle"; setStatus("idle"); }
+            // 1200ms buffer — lets speaker echo decay before mic opens again
+            setTimeout(() => {
+              if (callActiveRef.current && !keyboardRef.current) startListening();
+              else { statusRef.current = "idle"; setStatus("idle"); }
+            }, 1200);
           });
         } else {
           // Speaker off: just loop back to listening
@@ -300,8 +319,11 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     setStatus("speaking");
 
     tts(greeting, langRef.current, () => {
-      if (callActiveRef.current && !keyboardRef.current) startListening();
-      else { statusRef.current = "idle"; setStatus("idle"); }
+      // 1200ms buffer after greeting so mic doesn't pick up speaker echo
+      setTimeout(() => {
+        if (callActiveRef.current && !keyboardRef.current) startListening();
+        else { statusRef.current = "idle"; setStatus("idle"); }
+      }, 1200);
     });
   };
 

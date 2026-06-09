@@ -100,7 +100,14 @@ function StepsModal({ scheme, onClose }) {
 
         <div style={{ marginTop: 20, padding: "12px 14px", borderRadius: 12, background: "#FFF8E1", border: "1px solid #FFE082" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "#E65100", marginBottom: 4 }}>🌐 Official Website</div>
-          <div style={{ fontSize: 12, color: "#0277BD", fontWeight: 600 }}>{scheme.website}</div>
+          <a
+            href={`https://${scheme.website}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ fontSize: 12, color: "#0277BD", fontWeight: 600, textDecoration: "underline", cursor: "pointer" }}
+          >
+            {scheme.website}
+          </a>
         </div>
 
         <button
