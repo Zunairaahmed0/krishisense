@@ -77,3 +77,17 @@ button:hover { filter: brightness(0.99); }
 
 input::placeholder { color: #9CA3AF; }
 button:active { transform: scale(0.97); }
+
+@media (min-width: 500px) {
+  .app-shell {
+    zoom: 0.82;
+    transform-origin: top center;
+  }
+}
+
+@media (min-width: 900px) {
+  .app-shell {
+    zoom: 0.75;
+    transform-origin: top center;
+  }
+}

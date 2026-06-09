@@ -518,7 +518,7 @@ export default function HomeTab({
         </div>
 
         {/* Row 3: metric chips + CTA */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "nowrap" }}>
           {[insight.metric1, insight.metric2].map((m, i) => (
             <div key={i} style={{ flex: 1, display: "flex", alignItems: "center", gap: 7 }}>
               <span style={{ fontSize: 18, flexShrink: 0 }}>{m.icon}</span>
@@ -531,9 +531,17 @@ export default function HomeTab({
           <button
             onClick={() => setTab(insight.navigateTo)}
             style={{
-              flexShrink: 0, padding: "10px 13px", borderRadius: 99,
-              border: "none", background: insight.color, color: "white",
-              fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap",
+              padding: "10px 16px",
+              borderRadius: 99,
+              border: "none",
+              background: insight.color,
+              color: "white",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              alignSelf: "center",
             }}
           >
             View Recommendation ›
@@ -678,7 +686,6 @@ export default function HomeTab({
               </div>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 12, fontWeight: 800, color: C.txt }}>{title}</div>
-                <div style={{ fontSize: 10, color: C.mut, lineHeight: 1.4, marginTop: 2 }}>{desc}</div>
               </div>
               <div style={{ marginTop: "auto", width: 26, height: 26, borderRadius: "50%", background: iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <ChevronRight size={13} color="white" />
