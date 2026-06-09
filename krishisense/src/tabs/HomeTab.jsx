@@ -518,7 +518,7 @@ export default function HomeTab({
         </div>
 
         {/* Row 3: metric chips + CTA */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12, flexWrap: "nowrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
           {[insight.metric1, insight.metric2].map((m, i) => (
             <div key={i} style={{ flex: 1, display: "flex", alignItems: "center", gap: 7 }}>
               <span style={{ fontSize: 18, flexShrink: 0 }}>{m.icon}</span>
@@ -531,17 +531,18 @@ export default function HomeTab({
           <button
             onClick={() => setTab(insight.navigateTo)}
             style={{
-              padding: "10px 16px",
+              padding: "10px 14px",
               borderRadius: 99,
               border: "none",
               background: insight.color,
               color: "white",
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: 700,
               cursor: "pointer",
               whiteSpace: "nowrap",
               flexShrink: 0,
-              alignSelf: "center",
+              marginTop: 4,
+              width: "100%",
             }}
           >
             View Recommendation ›

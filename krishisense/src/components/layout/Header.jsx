@@ -28,7 +28,7 @@ export default function Header({ title, subtitle, iconSrc, showBack, onBack, log
       )}
 
       {/* Center */}
-      <div style={{ textAlign: "center", flex: 1, margin: "0 12px", minWidth: 0 }}>
+      <div style={{ textAlign: "center", flex: 1, margin: "0 8px", minWidth: 0 }}>
         {title ? (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             {iconSrc && (
@@ -47,14 +47,14 @@ export default function Header({ title, subtitle, iconSrc, showBack, onBack, log
           <div
             onClick={onLogoTap}
             style={{
-              width: 210,
+              width: 180,
               maxWidth: "100%",
               height: 44,
               margin: "0 auto",
               backgroundImage: `url(${logoSrc})`,
               backgroundRepeat: "no-repeat",
               backgroundPosition: "center 43%",
-              backgroundSize: "330px auto",
+              backgroundSize: "280px auto",
               cursor: onLogoTap ? "pointer" : "default",
               WebkitTapHighlightColor: "transparent",
             }}
