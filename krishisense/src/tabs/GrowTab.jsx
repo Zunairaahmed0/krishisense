@@ -28,6 +28,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
   const [weatherAlert, setWeatherAlert] = useState(false);
   const [analysisStep, setAnalysisStep] = useState("");
   const fileRef = useRef();
+  const galleryRef = useRef();
 
   const loadImg = (file) => {
     setImgPrev(URL.createObjectURL(file));
@@ -247,8 +248,9 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                 <div style={{ fontSize: 11, color: C.mut, lineHeight: 1.5, marginBottom: 14 }}>Upload a clear image of the affected leaf for AI analysis</div>
                 <div style={{ display: "flex", gap: 10 }}>
                   <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => e.target.files[0] && loadImg(e.target.files[0])} />
+                  <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files[0] && loadImg(e.target.files[0])} />
                   <button onClick={() => fileRef.current?.click()} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: C.primary, color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📷 Take Photo</button>
-                  <button onClick={() => fileRef.current?.click()} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🖼 Gallery</button>
+                  <button onClick={() => galleryRef.current?.click()} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🖼 Gallery</button>
                 </div>
                 <div style={{ fontSize: 10, color: C.mut, marginTop: 8 }}>🔒 Your images are secure and private</div>
               </div>

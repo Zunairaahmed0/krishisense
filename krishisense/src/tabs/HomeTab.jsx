@@ -307,8 +307,10 @@ export default function HomeTab({
   };
   const hs = computeFarmHealthScore();
   const gaugeCirc  = 2 * Math.PI * 45;  // ≈ 282.74
-  const gaugeFill  = hs.overallScore !== null ? (hs.overallScore / 100) * gaugeCirc : 0;
   const gaugeColor = (s) => s === null ? "#E5E7EB" : s >= 81 ? "#16A34A" : s >= 61 ? "#22A05D" : s >= 41 ? "#F59E0B" : "#EF4444";
+  const _scoreVal  = hs.overallScore ?? 0;
+  const gaugeFill  = (_scoreVal / 100) * gaugeCirc;
+  const gaugeEmpty = gaugeCirc - gaugeFill;
   const gaugeBadge = hs.overallScore === null
     ? { text: "No Data Yet", bg: "#F3F4F6", color: "#6B7280", border: "1px solid #E5E7EB" }
     : hs.overallScore >= 81 ? { text: "🌟 Excellent", bg: "#DCFCE7", color: "#15803D", border: "1px solid #86EFAC" }
@@ -566,14 +568,14 @@ export default function HomeTab({
                 stroke={gaugeColor(hs.overallScore)}
                 strokeWidth="10"
                 strokeLinecap="round"
-                strokeDasharray={`${gaugeFill} ${gaugeCirc}`}
+                strokeDasharray={`${gaugeFill} ${gaugeEmpty}`}
                 strokeDashoffset={gaugeCirc * 0.25}
-                style={{ transition: "stroke-dasharray 1.2s ease" }}
+                style={{ transition: "stroke-dasharray 1.2s ease", transform: "rotate(0deg)" }}
               />
-              <text x="60" y="54" textAnchor="middle" fontSize="26" fontWeight="900" fill="#123C2C" fontFamily="Inter, sans-serif">
+              <text x="60" y="55" textAnchor="middle" fontSize="24" fontWeight="900" fill="#123C2C" fontFamily="Inter, sans-serif">
                 {hs.overallScore ?? "--"}
               </text>
-              <text x="60" y="70" textAnchor="middle" fontSize="12" fill="#82938A" fontFamily="Inter, sans-serif">
+              <text x="60" y="72" textAnchor="middle" fontSize="12" fill="#82938A" fontFamily="Inter, sans-serif">
                 /100
               </text>
             </svg>
