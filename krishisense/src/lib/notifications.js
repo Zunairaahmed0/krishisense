@@ -3,7 +3,7 @@ import { doc, setDoc, getFirestore } from "firebase/firestore";
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
 
-export const initNotifications = async (firebaseApp, userId) => {
+export const initNotifications = async (firebaseApp, userId, loc) => {
   if (!firebaseApp)                    return { supported: false };
   if (!("Notification" in window))     return { supported: false };
   if (!("serviceWorker" in navigator)) return { supported: false };
@@ -64,6 +64,7 @@ export const initNotifications = async (firebaseApp, userId) => {
           platform: /Mobile/.test(navigator.userAgent) ? "mobile" : "desktop",
           updatedAt: new Date().toISOString(),
           active: true,
+          ...(loc?.lat != null && { lat: loc.lat, lon: loc.lon }),
         },
         { merge: true }
       );

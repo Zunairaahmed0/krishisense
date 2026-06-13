@@ -333,7 +333,7 @@ export default function App() {
   // Callable from anywhere — requests permission + gets FCM token
   const enableNotifications = useCallback(async () => {
     if (!user || !firebaseApp) return;
-    const result = await initNotifications(firebaseApp, user.uid);
+    const result = await initNotifications(firebaseApp, user.uid, loc);
     console.log("[FCM] init result:", result);
     if (result.token) {
       setFcmToken(result.token);
@@ -476,6 +476,8 @@ export default function App() {
       position:     "relative",
       overflowX:    "hidden",
       boxShadow:    "0 0 0 1px rgba(18,60,44,0.06), 0 24px 80px rgba(18,60,44,0.16)",
+      display:      "flex",
+      flexDirection: "column",
     }}>
       {/* ── Foreground push alert banners ── */}
       <AlertBanner firebaseApp={firebaseApp} />
@@ -547,7 +549,7 @@ export default function App() {
       )}
 
       {/* ── Page Content ── */}
-      <div key={tab} className="page-enter" style={{ paddingBottom: 88 }}>
+      <div key={tab} className="page-enter" style={{ paddingBottom: 88, flex: 1 }}>
         <ErrorBoundary key={tab}>
         {tab === "home" && (
           <HomeTab user={user} weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} setTab={setTab}

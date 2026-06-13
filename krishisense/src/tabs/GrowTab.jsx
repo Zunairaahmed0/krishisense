@@ -160,7 +160,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
     if (!res || isSaved || saving) return;
     setSaving(true);
     try {
-      await api.saveScan("leaf", res);
+      await api.saveScan("leaf", res, loc);
       setIsSaved(true);
       onScanSaved?.();
       showToast("Scan saved ✓");
@@ -175,6 +175,8 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 diseaseName: res.disease,
+                lat: loc?.lat ?? null,
+                lon: loc?.lon ?? null,
                 loc: { state: loc?.state || "Maharashtra", name: loc?.name || "Your Area" },
                 detectedByUserId: user?.uid || "anonymous",
               }),

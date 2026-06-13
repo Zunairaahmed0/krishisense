@@ -7,6 +7,14 @@ import { fetchMandiPrices, fetchPriceTrend, fetchMultiCropPrices } from "./lib/m
 
 dotenv.config();
 
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+};
+const OUTBREAK_RADIUS_KM = 50;
+
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
@@ -243,52 +251,69 @@ app.post("/api/alerts/check", rateLimit(30, 60_000), async (req, res) => {
 
 // ── Regional outbreak alert — triggered when multiple farms detect same disease ─
 app.post("/api/alerts/outbreak", rateLimit(10, 60_000), async (req, res) => {
-  const { diseaseName, loc, detectedByUserId } = req.body;
+  const { diseaseName, loc, lat, lon, detectedByUserId } = req.body;
   if (!diseaseName || !loc) return res.status(400).json({ error: "required fields missing" });
+
+  const hasCoords = lat != null && lon != null;
 
   try {
     const db = getAdminFirestore();
 
-    const weekAgo    = new Date(Date.now() - 7 * 86400000).toISOString();
-    const scansSnap  = await db.collection("scans")
+    // Fetch all recent diseased scans for this disease (last 7 days)
+    const weekAgo   = new Date(Date.now() - 7 * 86400000).toISOString();
+    const scansSnap = await db.collection("scans")
       .where("type",         "==", "leaf")
       .where("data.disease", "==", diseaseName)
       .where("date",         ">=", weekAgo)
       .get();
 
-    const count = scansSnap.size;
-    if (count < 3) {
-      return res.json({ outbreakDetected: false, count, message: "Insufficient cases for outbreak alert" });
-    }
+    // Filter to nearby scans (within 50 km), or accept all if no coords
+    const nearbyScans = scansSnap.docs.filter(d => {
+      const s = d.data();
+      if (!hasCoords || s.lat == null) return true;
+      return haversineKm(lat, lon, s.lat, s.lon) <= OUTBREAK_RADIUS_KM;
+    });
 
+    // Send alert as soon as 1 nearby detection exists (the triggering scan itself)
     const outbreakAlert = {
-      title:     `🚨 ${diseaseName} Outbreak in Your Region`,
-      body:      `${count} farms in your area have detected ${diseaseName} in the last 7 days. Your crops may be at risk even with no visible symptoms yet.`,
-      action:    `Apply preventive fungicide immediately. Check KrishiSense GROW tab for the full treatment protocol.`,
+      title:     `⚠️ ${diseaseName} Detected Nearby`,
+      body:      `A farmer near you just detected ${diseaseName}. Your crops may be at risk — inspect your fields and take preventive action.`,
+      action:    `Open KrishiSense GROW tab for the full treatment protocol.`,
       alertType: "outbreak_" + diseaseName.toLowerCase().replace(/\s/g, "_"),
       severity:  "critical",
       targetUrl: "/?tab=grow",
     };
 
+    // Send only to nearby users (exclude the detecting user)
     const tokenSnap = await db.collection("fcmTokens").where("active", "==", true).get();
-    const tokens    = tokenSnap.docs.map((d) => d.data().token).filter(Boolean);
+    const nearbyTokens = tokenSnap.docs.filter(d => {
+      const t = d.data();
+      if (t.userId === detectedByUserId) return false; // don't alert the sender
+      if (!hasCoords || t.lat == null) return true;    // no coords → include as fallback
+      return haversineKm(lat, lon, t.lat, t.lon) <= OUTBREAK_RADIUS_KM;
+    });
 
     let sent = 0;
-    for (const token of tokens) {
-      const ok = await sendAlertToUser(token, outbreakAlert);
-      if (ok) sent++;
+    for (const doc of nearbyTokens) {
+      const token = doc.data().token;
+      if (token) {
+        const ok = await sendAlertToUser(token, outbreakAlert);
+        if (ok) sent++;
+      }
     }
 
     await db.collection("outbreaks").add({
-      disease:         diseaseName,
-      state:           loc.state,
-      detectedCount:   count,
-      alertedFarmers:  sent,
-      triggeredAt:     new Date().toISOString(),
-      triggeredBy:     detectedByUserId,
+      disease:        diseaseName,
+      state:          loc.state,
+      lat:            lat ?? null,
+      lon:            lon ?? null,
+      nearbyCount:    nearbyScans.length,
+      alertedFarmers: sent,
+      triggeredAt:    new Date().toISOString(),
+      triggeredBy:    detectedByUserId,
     });
 
-    res.json({ outbreakDetected: true, count, sent, alert: outbreakAlert });
+    res.json({ outbreakDetected: true, count: nearbyScans.length, sent, alert: outbreakAlert });
   } catch (e) {
     console.error("[outbreak]", e.message);
     res.status(500).json({ error: "Outbreak check failed: " + e.message });

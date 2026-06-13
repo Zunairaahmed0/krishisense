@@ -249,16 +249,17 @@ export const firebaseCore = {
   },
   
   // Save scan to Firestore (real) or LocalStorage (emulated)
-  async saveScanRecord(type, scanData) {
+  async saveScanRecord(type, scanData, userLoc) {
     const activeUser = isRealFirebase ? authInstance.currentUser : getLocalData(ACTIVE_SESSION_KEY, null);
     if (!activeUser) throw new Error("Authentication required to save scans.");
-    
+
     const userId = activeUser.uid;
     const scanItem = {
       userId,
       type,
       date: new Date().toISOString(),
-      data: scanData
+      data: scanData,
+      ...(userLoc?.lat != null && { lat: userLoc.lat, lon: userLoc.lon }),
     };
     
     if (isRealFirebase) {

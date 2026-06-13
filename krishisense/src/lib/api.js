@@ -95,8 +95,8 @@ export const api = {
    * @param {string} type - 'soil' or 'leaf'
    * @param {object} data - Scan metadata payload
    */
-  async saveScan(type, data) {
-    return firebaseCore.saveScanRecord(type, data);
+  async saveScan(type, data, loc) {
+    return firebaseCore.saveScanRecord(type, data, loc);
   },
 
   /**
