@@ -111,10 +111,20 @@ app.post("/api/ai/chat", rateLimit(20, 60_000), async (req, res) => {
     return res.status(500).json({ error: "Server missing GEMINI_API_KEY" });
   }
 
-  // Build Gemini payload
+  // Build Gemini payload — convert from Anthropic-style content to Gemini parts format
   const parts = typeof content === "string"
     ? [{ text: content }]
-    : content; // allow pre-built parts array for image vision
+    : content.map(item => {
+        if (item.inlineData || item.text) return item; // already Gemini format
+        if (item.type === "text") return { text: item.text };
+        if (item.type === "image") return {
+          inlineData: {
+            mimeType: item.source?.media_type || "image/jpeg",
+            data: item.source?.data || "",
+          },
+        };
+        return item;
+      });
 
   const payload = { contents: [{ parts }] };
 
