@@ -260,11 +260,20 @@ app.post("/api/alerts/check", rateLimit(30, 60_000), async (req, res) => {
 });
 
 // ── Regional outbreak alert — triggered when multiple farms detect same disease ─
-app.post("/api/alerts/outbreak", rateLimit(10, 60_000), async (req, res) => {
+app.post("/api/alerts/outbreak", rateLimit(3, 300_000), async (req, res) => {
   const { diseaseName, loc, lat, lon, detectedByUserId } = req.body;
   if (!diseaseName || !loc) return res.status(400).json({ error: "required fields missing" });
+  if (!detectedByUserId || typeof detectedByUserId !== "string" || detectedByUserId.length < 4)
+    return res.status(400).json({ error: "detectedByUserId required" });
 
-  const hasCoords = lat != null && lon != null;
+  const parsedLat = lat != null ? parseFloat(lat) : null;
+  const parsedLon = lon != null ? parseFloat(lon) : null;
+  if (parsedLat != null && (isNaN(parsedLat) || parsedLat < -90 || parsedLat > 90))
+    return res.status(400).json({ error: "Invalid latitude" });
+  if (parsedLon != null && (isNaN(parsedLon) || parsedLon < -180 || parsedLon > 180))
+    return res.status(400).json({ error: "Invalid longitude" });
+
+  const hasCoords = parsedLat != null && parsedLon != null;
 
   try {
     const db = getAdminFirestore();
@@ -281,7 +290,7 @@ app.post("/api/alerts/outbreak", rateLimit(10, 60_000), async (req, res) => {
     const nearbyScans = scansSnap.docs.filter(d => {
       const s = d.data();
       if (!hasCoords || s.lat == null) return true;
-      return haversineKm(lat, lon, s.lat, s.lon) <= OUTBREAK_RADIUS_KM;
+      return haversineKm(parsedLat, parsedLon, s.lat, s.lon) <= OUTBREAK_RADIUS_KM;
     });
 
     // Send alert as soon as 1 nearby detection exists (the triggering scan itself)
@@ -300,7 +309,7 @@ app.post("/api/alerts/outbreak", rateLimit(10, 60_000), async (req, res) => {
       const t = d.data();
       if (t.userId === detectedByUserId) return false; // don't alert the sender
       if (!hasCoords || t.lat == null) return true;    // no coords → include as fallback
-      return haversineKm(lat, lon, t.lat, t.lon) <= OUTBREAK_RADIUS_KM;
+      return haversineKm(parsedLat, parsedLon, t.lat, t.lon) <= OUTBREAK_RADIUS_KM;
     });
 
     let sent = 0;
@@ -315,8 +324,8 @@ app.post("/api/alerts/outbreak", rateLimit(10, 60_000), async (req, res) => {
     await db.collection("outbreaks").add({
       disease:        diseaseName,
       state:          loc.state,
-      lat:            lat ?? null,
-      lon:            lon ?? null,
+      lat:            parsedLat ?? null,
+      lon:            parsedLon ?? null,
       nearbyCount:    nearbyScans.length,
       alertedFarmers: sent,
       triggeredAt:    new Date().toISOString(),

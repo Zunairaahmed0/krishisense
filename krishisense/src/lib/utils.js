@@ -1,1 +1,1 @@
-export const parseJSON=(raw)=>{try{const s=raw.indexOf("{");const e=raw.lastIndexOf("}")+1;return JSON.parse(raw.slice(s,e))}catch{return null}};
+export const parseJSON=(raw)=>{if(!raw)return null;try{const clean=raw.replace(/^```(?:json)?\s*/i,"").replace(/```\s*$/,"").trim();const s=clean.indexOf("{");const e=clean.lastIndexOf("}")+1;if(s<0||e<=s)return null;return JSON.parse(clean.slice(s,e))}catch{return null}};

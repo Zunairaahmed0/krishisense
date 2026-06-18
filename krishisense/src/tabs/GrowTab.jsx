@@ -53,6 +53,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
     let hfResult = null;
     let parsed = null;
 
+    try {
     // Step 1: specialized PlantVillage classifier
     try {
       setAnalysisStep("🤖 Running PlantVillage disease classifier...");
@@ -79,31 +80,37 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
     const raw = await askAI(content, "Return ONLY valid JSON. No markdown.");
     parsed = parseJSON(raw);
 
+    // If HF succeeded but Gemini failed, build a result from HF data only
+    if (!parsed && hfResult) {
+      parsed = {
+        disease:     hfResult.disease,
+        scientific:  "",
+        crop:        hfResult.crop,
+        severity:    hfResult.severity,
+        confidence:  hfResult.confidence,
+        status:      hfResult.status,
+        description: `${hfResult.disease} detected by PlantVillage classifier. AI treatment details unavailable — consult your local agricultural extension officer.`,
+        treatment:   ["Consult a local agronomist for treatment advice"],
+        urgency:     "As soon as possible",
+        prevention:  "Monitor crops regularly and maintain field hygiene",
+        hf_model_used: true,
+      };
+    }
+
+    // Both models failed — show error instead of a fake diagnosis
+    if (!parsed) {
+      setPhase("error");
+      return;
+    }
+
     // Merge HF confidence into Gemini result
     if (hfResult && parsed) {
       parsed.hf_confidence = hfResult.confidence;
       parsed.hf_source = hfResult.source;
       parsed.top_predictions = hfResult.topPredictions;
-      // Boost confidence when both models agree on the disease type
       if (hfResult.disease.toLowerCase().includes((parsed.disease?.toLowerCase()?.split(" ")[0]) || "")) {
         parsed.confidence = Math.min(99, Math.round((hfResult.confidence + parsed.confidence) / 2 + 5));
       }
-    }
-
-    // Fallback if Gemini fails
-    if (!parsed) {
-      parsed = {
-        disease: hfResult?.disease || "Early Blight",
-        scientific: "Alternaria solani",
-        crop: hfResult?.crop || "Tomato",
-        severity: hfResult?.severity || 68,
-        confidence: hfResult?.confidence || 92,
-        status: hfResult?.status || "diseased",
-        description: "Early blight detected with characteristic brown concentric ring lesions on lower leaves.",
-        treatment: ["Remove infected leaves immediately", "Spray Mancozeb 75WP at 2.5g/L", "Apply Copper Oxychloride after 7 days"],
-        urgency: "48 hours",
-        prevention: "Avoid overhead irrigation, maintain plant spacing",
-      };
     }
 
     setRes(parsed);
@@ -117,6 +124,10 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
       speak(msg, lang);
     }
     setPhase("result");
+    } catch (err) {
+      console.error("[GrowTab] analyze failed:", err);
+      setPhase("error");
+    }
   };
 
   const handleShareReport = async () => {
@@ -293,6 +304,16 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
           <Spinner size={44} />
           <div style={{ fontSize: 16, fontWeight: 700, color: C.txt, marginTop: 16, marginBottom: 10 }}>Analyzing Leaf Tissue</div>
           <div style={{ fontSize: 13, color: C.p2, fontWeight: 600, marginTop: 12 }}>{analysisStep}</div>
+        </Card>
+      )}
+
+      {/* ── Error ──────────────────────────────────────────── */}
+      {phase === "error" && (
+        <Card style={{ margin: "0 14px 16px", textAlign: "center", padding: 32 }}>
+          <div style={{ fontSize: 44, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: C.txt, marginBottom: 8 }}>Analysis Failed</div>
+          <div style={{ fontSize: 13, color: C.p2, marginBottom: 20 }}>Could not analyze the image. Please try with a clearer, well-lit photo of the affected leaf.</div>
+          <button onClick={reset} style={{ background: C.p1, color: "#fff", border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Try Again</button>
         </Card>
       )}
 
