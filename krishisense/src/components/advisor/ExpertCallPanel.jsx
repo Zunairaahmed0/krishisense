@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { PhoneOff, Mic, MicOff, Volume2 } from "lucide-react";
+import { PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
 import { C } from "../../constants/theme";
 import { AudioRecorder } from "../../lib/audioRecorder";
 import { transcribeWithGroq, getLangFromState, DEFAULT_LANG } from "../../lib/groqWhisper";
@@ -512,11 +512,10 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
             cursor: "pointer",
           }}
         >
-          <Mic size={22} color={
-            phase === S.LISTENING ? C.p3
-            : phase === S.SPEAKING ? C.blue
-            : "rgba(255,255,255,0.82)"
-          } />
+          {phase === S.SPEAKING
+            ? <VolumeX  size={22} color={C.blue} />
+            : <Volume2  size={22} color={phase === S.LISTENING ? C.p3 : "rgba(255,255,255,0.82)"} />
+          }
         </button>
       </div>
 
