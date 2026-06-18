@@ -27,49 +27,48 @@ const SUGGESTIONS = [
   "What crop should I plant now?",
 ];
 
-// ─── Reliable TTS ──────────────────────────────────────────────────────────────
-// Chrome loads voices asynchronously. We wait for them before every speak call.
-const loadVoices = () =>
-  new Promise((resolve) => {
-    const voices = window.speechSynthesis?.getVoices() || [];
-    if (voices.length > 0) { resolve(voices); return; }
-    const onReady = () => {
-      window.speechSynthesis.removeEventListener("voiceschanged", onReady);
-      resolve(window.speechSynthesis.getVoices());
-    };
-    window.speechSynthesis.addEventListener("voiceschanged", onReady);
-    setTimeout(() => resolve(window.speechSynthesis?.getVoices() || []), 2500);
-  });
+// ─── TTS — fully synchronous so mobile browsers don't block speak() ───────────
+// Web Speech API requires speak() to be called synchronously within a user
+// gesture on iOS Safari and Android Chrome. Any await before speak() silently
+// blocks audio. Voices are loaded into a component ref on mount instead.
+//
+// For keyboard mode (sendText), we also call speak() with a silent primer
+// synchronously on the button click BEFORE the await getAIReply(), so the audio
+// context is unlocked before tts() is called after the async response arrives.
 
-const tts = async (text, langCode, onDone) => {
+const tts = (voicesRef, text, langCode, onDone) => {
   if (!text || !window.speechSynthesis) { onDone?.(); return; }
-  window.speechSynthesis.cancel();
-  await new Promise(r => setTimeout(r, 80)); // flush cancel
 
-  const voices = await loadVoices();
-  const lang = langCode || "hi-IN";
-  const voice =
+  const MAX = 250;
+  const safeText = text.length > MAX
+    ? text.slice(0, MAX).replace(/\s+\S*$/, "").trimEnd() + "…"
+    : text;
+
+  const lang   = langCode || "hi-IN";
+  const voices = voicesRef.current;
+  const voice  =
     voices.find(v => v.lang === lang) ||
     voices.find(v => v.lang.startsWith(lang.split("-")[0])) ||
-    voices.find(v => v.lang.startsWith("hi")) || // fallback to Hindi
-    null;
+    voices.find(v => v.lang.startsWith("en")) || // English fallback beats silence
+    voices[0] || null;
 
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang  = lang;
+  window.speechSynthesis.cancel();
+
+  const utter = new SpeechSynthesisUtterance(safeText);
+  utter.lang  = voice ? voice.lang : lang;
   utter.rate  = 0.88;
-  utter.pitch = /[!！]|urgent|warning|सावधान|खतरा/i.test(text) ? 1.1 : 1.0;
+  utter.pitch = /[!！]|urgent|warning|सावधान|खतरा/i.test(safeText) ? 1.1 : 1.0;
   if (voice) utter.voice = voice;
 
-  // Prevent garbage collection (Chrome bug)
-  window._krishiUtter = utter;
+  window._krishiUtter = utter; // prevent Chrome garbage-collecting mid-playback
 
   let finished = false;
-  const done = () => { if (!finished) { finished = true; window._krishiUtter = null; onDone?.(); } };
-
+  const done = () => {
+    if (!finished) { finished = true; window._krishiUtter = null; onDone?.(); }
+  };
   utter.onend   = done;
-  utter.onerror = done;
-  // Safety timeout: ~500ms per word + 3s buffer
-  setTimeout(done, Math.max(6000, text.split(/\s+/).length * 550 + 3000));
+  utter.onerror = (e) => { console.warn("[tts]", e.error); done(); };
+  setTimeout(done, Math.max(5000, safeText.split(/\s+/).length * 500 + 2000));
 
   window.speechSynthesis.speak(utter);
 };
@@ -155,11 +154,23 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   const recRef           = useRef(null);
   const bottomRef        = useRef();
   const lastAIReplyRef   = useRef(""); // echo guard — tracks last spoken reply
+  const voicesRef        = useRef([]);  // pre-cached voices for synchronous tts()
 
   // Keep refs in sync with state
   useEffect(() => { speakerRef.current   = speakerEnabled; }, [speakerEnabled]);
   useEffect(() => { keyboardRef.current  = keyboardMode;   }, [keyboardMode]);
   useEffect(() => { langRef.current      = activeLang.code; }, [activeLang]);
+
+  // Pre-load voices so tts() never needs to await them
+  useEffect(() => {
+    const load = () => {
+      const v = window.speechSynthesis?.getVoices() || [];
+      if (v.length) voicesRef.current = v;
+    };
+    load();
+    window.speechSynthesis?.addEventListener("voiceschanged", load);
+    return () => window.speechSynthesis?.removeEventListener("voiceschanged", load);
+  }, []);
 
   const getTime = () =>
     new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
@@ -276,7 +287,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
         if (speakerRef.current) {
           statusRef.current = "speaking";
           setStatus("speaking");
-          tts(reply, langRef.current, () => {
+          tts(voicesRef, reply, langRef.current, () => {
             // 1200ms buffer — lets speaker echo decay before mic opens again
             setTimeout(() => {
               if (callActiveRef.current && !keyboardRef.current) startListening();
@@ -318,7 +329,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     statusRef.current = "speaking";
     setStatus("speaking");
 
-    tts(greeting, langRef.current, () => {
+    tts(voicesRef, greeting, langRef.current, () => {
       // 1200ms buffer after greeting so mic doesn't pick up speaker echo
       setTimeout(() => {
         if (callActiveRef.current && !keyboardRef.current) startListening();
@@ -343,6 +354,18 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   const sendText = async () => {
     const text = textInput.trim();
     if (!text || statusRef.current === "thinking") return;
+
+    // Synchronously unlock Web Speech API on this button-click gesture BEFORE any
+    // await. iOS Safari and Android Chrome block speak() after an await unless
+    // speak() was already called synchronously within the same gesture.
+    if (speakerRef.current && window.speechSynthesis) {
+      const primer = new SpeechSynthesisUtterance(" ");
+      primer.volume = 0;
+      primer.rate   = 10;
+      window.speechSynthesis.speak(primer);
+      // tts() will cancel this silent primer and speak the real reply
+    }
+
     setTextInput("");
     setMsgs(p => [...p, { role: "user", text, time: getTime() }]);
     statusRef.current = "thinking";
@@ -355,8 +378,9 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     if (speakerRef.current) {
       statusRef.current = "speaking";
       setStatus("speaking");
-      tts(reply, detected.code, () => { statusRef.current = "idle"; setStatus("idle"); });
+      tts(voicesRef, reply, detectLanguage(reply).code, () => { statusRef.current = "idle"; setStatus("idle"); });
     } else {
+      window.speechSynthesis?.cancel(); // clear the silent primer
       statusRef.current = "idle";
       setStatus("idle");
     }
@@ -626,7 +650,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
                   <span>{m.time}</span>
                   {m.role === "user" && <span style={{ color: "#81C784", fontWeight: 800, fontSize: 11 }}>✓✓</span>}
                   {m.role === "ai" && (
-                    <button onClick={() => tts(m.text, activeLang.code, () => {})}
+                    <button onClick={() => tts(voicesRef, m.text, activeLang.code, () => {})}
                       style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 4, color: "#9E9E9E", display: "flex" }}>
                       <Volume2 size={11} />
                     </button>
