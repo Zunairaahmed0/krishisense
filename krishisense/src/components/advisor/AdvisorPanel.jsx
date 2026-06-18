@@ -3,7 +3,7 @@ import { ChevronLeft, Volume2, VolumeX, Keyboard, PhoneOff, Mic, Send, Phone } f
 import { C } from "../../constants/theme";
 import { askAI } from "../../lib/ai";
 import { getLang, buildPrompt, detectLanguage } from "../../lib/voiceAI";
-import { speakText, cancelAllSpeech } from "../../lib/sarvamTTS";
+import { speakText, cancelAllSpeech, unlockAudio } from "../../lib/sarvamTTS";
 import aiCallingBg from "../../assets/AI_Calling_BG.png";
 
 // ─── Response cache ────────────────────────────────────────────────────────────
@@ -268,6 +268,10 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
 
   // ─── Start call ───────────────────────────────────────────────────────────
   const startCall = () => {
+    // Unlock AudioContext synchronously within the user gesture so all
+    // subsequent async Sarvam TTS calls (speakWithSarvam → AudioContext) are allowed.
+    unlockAudio();
+
     callActiveRef.current = true;
     setCallActive(true);
     setKeyboardMode(false);
@@ -280,13 +284,33 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     statusRef.current = "speaking";
     setStatus("speaking");
 
-    speak(greeting, langRef.current, () => {
-      // 1200ms buffer after greeting so mic doesn't pick up speaker echo
+    const afterGreeting = () => {
       setTimeout(() => {
         if (callActiveRef.current && !keyboardRef.current) startListening();
         else { statusRef.current = "idle"; setStatus("idle"); }
       }, 1200);
-    });
+    };
+
+    // Speak greeting synchronously via browser TTS — we're still inside the
+    // button click handler so the autoplay gesture token is valid.
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(greeting);
+      u.lang   = langRef.current || "hi-IN";
+      u.rate   = 0.85;
+      u.volume = 1;
+      const voices = window.speechSynthesis.getVoices();
+      const match  = voices.find(v =>
+        v.lang === u.lang || v.lang.startsWith(u.lang.split("-")[0])
+      );
+      if (match) u.voice = match;
+      const safety = setTimeout(afterGreeting, 15_000);
+      u.onend   = () => { clearTimeout(safety); afterGreeting(); };
+      u.onerror = () => { clearTimeout(safety); afterGreeting(); };
+      window.speechSynthesis.speak(u);  // synchronous — in user gesture ✓
+    } else {
+      speak(greeting, langRef.current, afterGreeting);
+    }
   };
 
   // ─── End call ─────────────────────────────────────────────────────────────
@@ -305,6 +329,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   const sendText = async () => {
     const text = textInput.trim();
     if (!text || statusRef.current === "thinking") return;
+    unlockAudio(); // unlock AudioContext while still in the button click gesture
     setTextInput("");
     setMsgs(p => [...p, { role: "user", text, time: getTime() }]);
     statusRef.current = "thinking";

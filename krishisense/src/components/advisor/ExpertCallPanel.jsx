@@ -236,15 +236,59 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Called by the "Start Call" button — must be inside a user gesture so the
-  // browser's autoplay policy allows audio playback.
+  // Called by the "Start Call" button.
+  // MUST speak synchronously within the user gesture — any await/setTimeout
+  // before speak() causes mobile browsers to block audio (autoplay policy).
   const handleTapStart = useCallback(() => {
-    unlockAudio();
+    unlockAudio();  // pre-unlock AudioContext for all subsequent Sarvam calls
     setTapStarted(true);
-    if (initLangRef.current) {
-      doSpeak(greetingRef.current, initLangRef.current);
+    setPhase(S.SPEAKING);
+    isSpeakingRef.current = true;
+
+    const lang = initLangRef.current;
+    const text = greetingRef.current;
+
+    if (!lang || !text) {
+      isSpeakingRef.current = false;
+      if (!mutedRef.current) startRecording();
+      return;
     }
-  }, [doSpeak]);
+
+    const onDone = () => {
+      isSpeakingRef.current = false;
+      if (isMountedRef.current && !mutedRef.current) startRecording();
+    };
+
+    if (!window.speechSynthesis) {
+      // No browser TTS — skip greeting and go straight to mic
+      setTimeout(onDone, 300);
+      return;
+    }
+
+    // Speak synchronously — this is called directly inside onClick, so the
+    // browser gesture token is still valid and audio is allowed.
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang   = lang.code || "hi-IN";
+    u.rate   = 0.85;
+    u.volume = 1;
+
+    // Try to pick the right voice; falls back to device default if not found
+    const voices = window.speechSynthesis.getVoices();
+    const match  = voices.find(
+      v => v.lang === lang.code || v.lang.startsWith((lang.code || "hi").split("-")[0])
+    );
+    if (match) u.voice = match;
+
+    const safety = setTimeout(() => { if (isSpeakingRef.current) onDone(); }, 15_000);
+    u.onend   = () => { clearTimeout(safety); onDone(); };
+    u.onerror = () => { clearTimeout(safety); onDone(); };
+
+    window.speechSynthesis.speak(u);  // ← synchronous, inside user gesture ✓
+
+    // Also unlock Sarvam / AudioContext path for AI replies that come later
+    // (those are handled by doSpeak → speakText → speakWithSarvam → AudioContext)
+  }, [startRecording]);
 
   // ── Derived values ──────────────────────────────────────────────────────────
   const statusColor = STATUS_COLOR[phase] || C.mut;
