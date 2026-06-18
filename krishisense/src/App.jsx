@@ -20,7 +20,6 @@ import Toast, { useToast } from "./components/ui/Toast";
 import { api } from "./lib/api";
 import { askAI } from "./lib/ai";
 import { parseJSON } from "./lib/utils";
-import { unlockAudio } from "./lib/sarvamTTS";
 import { firebaseApp } from "./lib/firebase";
 import { initNotifications, getNotificationStatus } from "./lib/notifications";
 import AlertBanner from "./components/ui/AlertBanner";
@@ -390,24 +389,13 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [weather, loc, user, fcmToken, scans]);
 
-  // Backend health check — retries to handle Render cold-start (~30-60s)
+  // Backend health check — runs once on mount
   useEffect(() => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
     if (!backendUrl) return;
-    let cancelled = false;
-    const ping = async () => {
-      for (let attempt = 0; attempt < 4; attempt++) {
-        if (cancelled) return;
-        try {
-          const r = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(20_000) });
-          if (r.ok) { setBackendAvailable(true); return; }
-        } catch {}
-        if (attempt < 3) await new Promise(res => setTimeout(res, 15_000));
-      }
-      if (!cancelled) setBackendAvailable(false);
-    };
-    ping();
-    return () => { cancelled = true; };
+    fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) })
+      .then(r => { if (!r.ok) throw new Error("not ok"); })
+      .catch(() => setBackendAvailable(false));
   }, []);
 
   // Tab-specific headers
@@ -597,7 +585,7 @@ export default function App() {
       {tab !== "sustain" && (
         <button
           className="fab"
-          onClick={() => { unlockAudio(); setExpertCall(true); }}
+          onClick={() => setExpertCall(true)}
           style={{
             width:          54,
             height:         54,

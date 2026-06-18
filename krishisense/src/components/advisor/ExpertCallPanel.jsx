@@ -3,7 +3,7 @@ import { PhoneOff, Mic, MicOff, Volume2 } from "lucide-react";
 import { C } from "../../constants/theme";
 import { AudioRecorder } from "../../lib/audioRecorder";
 import { transcribeWithGroq, getLangFromState, DEFAULT_LANG } from "../../lib/groqWhisper";
-import { speakText, cancelAllSpeech, unlockAudio } from "../../lib/sarvamTTS";
+import { speakText, cancelAllSpeech } from "../../lib/sarvamTTS";
 import { askAI } from "../../lib/ai";
 
 const S = { IDLE: "idle", LISTENING: "listening", THINKING: "thinking", SPEAKING: "speaking" };
@@ -47,15 +47,12 @@ const buildGreeting = (lang, loc, weather) => {
 
 export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
   const [phase,        setPhase]        = useState(S.IDLE);
-  const [tapStarted,   setTapStarted]   = useState(false);
   const [detectedLang, setDetectedLang] = useState(() => getLangFromState(loc?.state));
   const [interimText,  setInterimText]  = useState("");
   const [messages,     setMessages]     = useState([]);
   const [muted,        setMuted]        = useState(false);
   const [callTime,     setCallTime]     = useState(0);
   const [level,        setLevel]        = useState(0);
-  const greetingRef    = useRef("");
-  const initLangRef    = useRef(null);
 
   const recorderRef    = useRef(null);
   const levelTimerRef  = useRef(null);
@@ -215,17 +212,26 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
   }, [loc, weather, doSpeak]);
 
   // ── Greeting + lifecycle ────────────────────────────────────────────────────
+  // Uses a local `active` flag (not a ref) so each StrictMode invocation gets its
+  // own closure. The first invocation's cleanup sets active=false, cancelling its
+  // timer. The second invocation creates a NEW active=true and a new timer that
+  // actually fires — fixing the "Starting…" forever bug.
   useEffect(() => {
     isMountedRef.current = true;
 
     const initLang = getLangFromState(loc?.state);
     const greeting = buildGreeting(initLang, loc, weather);
-    greetingRef.current  = greeting;
-    initLangRef.current  = initLang;
     setDetectedLang(initLang);
     setMessages([{ role: "ai", text: greeting }]);
 
+    let active = true;
+    const timer = setTimeout(() => {
+      if (active && isMountedRef.current) doSpeak(greeting, initLang);
+    }, 500);
+
     return () => {
+      active = false; // blocks this invocation's timer on fake unmount
+      clearTimeout(timer);
       isMountedRef.current  = false;
       isSpeakingRef.current = false;
       clearInterval(levelTimerRef.current);
@@ -235,60 +241,6 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Called by the "Start Call" button.
-  // MUST speak synchronously within the user gesture — any await/setTimeout
-  // before speak() causes mobile browsers to block audio (autoplay policy).
-  const handleTapStart = useCallback(() => {
-    unlockAudio();  // pre-unlock AudioContext for all subsequent Sarvam calls
-    setTapStarted(true);
-    setPhase(S.SPEAKING);
-    isSpeakingRef.current = true;
-
-    const lang = initLangRef.current;
-    const text = greetingRef.current;
-
-    if (!lang || !text) {
-      isSpeakingRef.current = false;
-      if (!mutedRef.current) startRecording();
-      return;
-    }
-
-    const onDone = () => {
-      isSpeakingRef.current = false;
-      if (isMountedRef.current && !mutedRef.current) startRecording();
-    };
-
-    if (!window.speechSynthesis) {
-      // No browser TTS — skip greeting and go straight to mic
-      setTimeout(onDone, 300);
-      return;
-    }
-
-    // Speak synchronously — this is called directly inside onClick, so the
-    // browser gesture token is still valid and audio is allowed.
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang   = lang.code || "hi-IN";
-    u.rate   = 0.85;
-    u.volume = 1;
-
-    // Try to pick the right voice; falls back to device default if not found
-    const voices = window.speechSynthesis.getVoices();
-    const match  = voices.find(
-      v => v.lang === lang.code || v.lang.startsWith((lang.code || "hi").split("-")[0])
-    );
-    if (match) u.voice = match;
-
-    const safety = setTimeout(() => { if (isSpeakingRef.current) onDone(); }, 15_000);
-    u.onend   = () => { clearTimeout(safety); onDone(); };
-    u.onerror = () => { clearTimeout(safety); onDone(); };
-
-    window.speechSynthesis.speak(u);  // ← synchronous, inside user gesture ✓
-
-    // Also unlock Sarvam / AudioContext path for AI replies that come later
-    // (those are handled by doSpeak → speakText → speakWithSarvam → AudioContext)
-  }, [startRecording]);
 
   // ── Derived values ──────────────────────────────────────────────────────────
   const statusColor = STATUS_COLOR[phase] || C.mut;
@@ -576,55 +528,6 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
       }}>
         Groq Whisper · Gemini 2.5 · Sarvam Bulbul · 10 Indian languages
       </div>
-
-      {/* ── Start Call overlay — shown until user taps, to satisfy browser autoplay policy ── */}
-      {!tapStarted && (
-        <div style={{
-          position: "absolute", inset: 0, zIndex: 20,
-          display: "flex", flexDirection: "column",
-          alignItems: "center", justifyContent: "center", gap: 18,
-          background: "linear-gradient(160deg,#0d2b1d 0%,#123c2c 45%,#0a2318 100%)",
-        }}>
-          <div style={{ fontSize: 52 }}>🌿</div>
-          <div style={{ color: "#fff", fontWeight: 800, fontSize: 20, letterSpacing: 0.3 }}>
-            KrishiSense AI Expert
-          </div>
-          <div style={{
-            color: "rgba(255,255,255,0.55)", fontSize: 13,
-            textAlign: "center", maxWidth: 240, lineHeight: 1.6,
-          }}>
-            Tap below to begin your voice call with the AI farming expert
-          </div>
-          <button
-            onClick={handleTapStart}
-            style={{
-              marginTop: 8,
-              padding: "16px 40px",
-              borderRadius: 99,
-              background: "linear-gradient(135deg,#22a05d,#16753f)",
-              border: "2px solid rgba(255,255,255,0.18)",
-              color: "#fff",
-              fontSize: 17,
-              fontWeight: 800,
-              cursor: "pointer",
-              letterSpacing: 0.5,
-              boxShadow: "0 6px 28px rgba(34,160,93,0.45)",
-            }}
-          >
-            🎙️ Start Call
-          </button>
-          <button
-            onClick={handleEnd}
-            style={{
-              background: "none", border: "none",
-              color: "rgba(255,255,255,0.35)", fontSize: 12,
-              cursor: "pointer", padding: 8,
-            }}
-          >
-            Cancel
-          </button>
-        </div>
-      )}
     </div>
   );
 }

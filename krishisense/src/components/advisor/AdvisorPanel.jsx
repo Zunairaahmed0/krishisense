@@ -3,7 +3,6 @@ import { ChevronLeft, Volume2, VolumeX, Keyboard, PhoneOff, Mic, Send, Phone } f
 import { C } from "../../constants/theme";
 import { askAI } from "../../lib/ai";
 import { getLang, buildPrompt, detectLanguage } from "../../lib/voiceAI";
-import { speakText, cancelAllSpeech, unlockAudio } from "../../lib/sarvamTTS";
 import aiCallingBg from "../../assets/AI_Calling_BG.png";
 
 // ─── Response cache ────────────────────────────────────────────────────────────
@@ -28,12 +27,51 @@ const SUGGESTIONS = [
   "What crop should I plant now?",
 ];
 
-// ─── speak() wrapper ──────────────────────────────────────────────────────────
-// Uses Sarvam TTS (HTTP → Audio object, no user-gesture restriction) with
-// automatic fallback to browser speech synthesis.
-const speak = (text, langCode, onDone) => {
-  if (!text) { onDone?.(); return; }
-  speakText(text, langCode || "hi-IN", "shubh", null, () => onDone?.());
+// ─── Reliable TTS ──────────────────────────────────────────────────────────────
+// Chrome loads voices asynchronously. We wait for them before every speak call.
+const loadVoices = () =>
+  new Promise((resolve) => {
+    const voices = window.speechSynthesis?.getVoices() || [];
+    if (voices.length > 0) { resolve(voices); return; }
+    const onReady = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", onReady);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", onReady);
+    setTimeout(() => resolve(window.speechSynthesis?.getVoices() || []), 2500);
+  });
+
+const tts = async (text, langCode, onDone) => {
+  if (!text || !window.speechSynthesis) { onDone?.(); return; }
+  window.speechSynthesis.cancel();
+  await new Promise(r => setTimeout(r, 80)); // flush cancel
+
+  const voices = await loadVoices();
+  const lang = langCode || "hi-IN";
+  const voice =
+    voices.find(v => v.lang === lang) ||
+    voices.find(v => v.lang.startsWith(lang.split("-")[0])) ||
+    voices.find(v => v.lang.startsWith("hi")) || // fallback to Hindi
+    null;
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang  = lang;
+  utter.rate  = 0.88;
+  utter.pitch = /[!！]|urgent|warning|सावधान|खतरा/i.test(text) ? 1.1 : 1.0;
+  if (voice) utter.voice = voice;
+
+  // Prevent garbage collection (Chrome bug)
+  window._krishiUtter = utter;
+
+  let finished = false;
+  const done = () => { if (!finished) { finished = true; window._krishiUtter = null; onDone?.(); } };
+
+  utter.onend   = done;
+  utter.onerror = done;
+  // Safety timeout: ~500ms per word + 3s buffer
+  setTimeout(done, Math.max(6000, text.split(/\s+/).length * 550 + 3000));
+
+  window.speechSynthesis.speak(utter);
 };
 
 // ─── Reliable STT with silence detection ──────────────────────────────────────
@@ -152,7 +190,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   useEffect(() => {
     return () => {
       callActiveRef.current = false;
-      cancelAllSpeech();
+      window.speechSynthesis?.cancel();
       try { recRef.current?.stop(); } catch (_) {}
     };
   }, []);
@@ -238,7 +276,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
         if (speakerRef.current) {
           statusRef.current = "speaking";
           setStatus("speaking");
-          speak(reply, langRef.current, () => {
+          tts(reply, langRef.current, () => {
             // 1200ms buffer — lets speaker echo decay before mic opens again
             setTimeout(() => {
               if (callActiveRef.current && !keyboardRef.current) startListening();
@@ -268,10 +306,6 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
 
   // ─── Start call ───────────────────────────────────────────────────────────
   const startCall = () => {
-    // Unlock AudioContext synchronously within the user gesture so all
-    // subsequent async Sarvam TTS calls (speakWithSarvam → AudioContext) are allowed.
-    unlockAudio();
-
     callActiveRef.current = true;
     setCallActive(true);
     setKeyboardMode(false);
@@ -284,39 +318,19 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     statusRef.current = "speaking";
     setStatus("speaking");
 
-    const afterGreeting = () => {
+    tts(greeting, langRef.current, () => {
+      // 1200ms buffer after greeting so mic doesn't pick up speaker echo
       setTimeout(() => {
         if (callActiveRef.current && !keyboardRef.current) startListening();
         else { statusRef.current = "idle"; setStatus("idle"); }
       }, 1200);
-    };
-
-    // Speak greeting synchronously via browser TTS — we're still inside the
-    // button click handler so the autoplay gesture token is valid.
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(greeting);
-      u.lang   = langRef.current || "hi-IN";
-      u.rate   = 0.85;
-      u.volume = 1;
-      const voices = window.speechSynthesis.getVoices();
-      const match  = voices.find(v =>
-        v.lang === u.lang || v.lang.startsWith(u.lang.split("-")[0])
-      );
-      if (match) u.voice = match;
-      const safety = setTimeout(afterGreeting, 15_000);
-      u.onend   = () => { clearTimeout(safety); afterGreeting(); };
-      u.onerror = () => { clearTimeout(safety); afterGreeting(); };
-      window.speechSynthesis.speak(u);  // synchronous — in user gesture ✓
-    } else {
-      speak(greeting, langRef.current, afterGreeting);
-    }
+    });
   };
 
   // ─── End call ─────────────────────────────────────────────────────────────
   const endCall = () => {
     callActiveRef.current = false;
-    cancelAllSpeech();
+    window.speechSynthesis?.cancel();
     try { recRef.current?.stop(); } catch (_) {}
     statusRef.current = "idle";
     setStatus("idle");
@@ -329,7 +343,6 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   const sendText = async () => {
     const text = textInput.trim();
     if (!text || statusRef.current === "thinking") return;
-    unlockAudio(); // unlock AudioContext while still in the button click gesture
     setTextInput("");
     setMsgs(p => [...p, { role: "user", text, time: getTime() }]);
     statusRef.current = "thinking";
@@ -342,7 +355,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     if (speakerRef.current) {
       statusRef.current = "speaking";
       setStatus("speaking");
-      speak(reply, detectLanguage(reply).code, () => { statusRef.current = "idle"; setStatus("idle"); });
+      tts(reply, detected.code, () => { statusRef.current = "idle"; setStatus("idle"); });
     } else {
       statusRef.current = "idle";
       setStatus("idle");
@@ -493,7 +506,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
             {/* Speaker */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
               <button
-                onClick={() => { setSpeakerEnabled(p => !p); if (speakerEnabled) cancelAllSpeech(); }}
+                onClick={() => { setSpeakerEnabled(p => !p); if (speakerEnabled) window.speechSynthesis?.cancel(); }}
                 style={{ width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer", background: speakerEnabled ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}
               >
                 {speakerEnabled ? <Volume2 size={22} color="#fff" /> : <VolumeX size={22} color="rgba(255,255,255,0.45)" />}
@@ -516,7 +529,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
               <button
                 onClick={() => {
-                  cancelAllSpeech();
+                  window.speechSynthesis?.cancel();
                   try { recRef.current?.stop(); } catch (_) {}
                   statusRef.current = "idle"; setStatus("idle");
                   setKeyboardMode(true); keyboardRef.current = true;
@@ -613,7 +626,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
                   <span>{m.time}</span>
                   {m.role === "user" && <span style={{ color: "#81C784", fontWeight: 800, fontSize: 11 }}>✓✓</span>}
                   {m.role === "ai" && (
-                    <button onClick={() => speak(m.text, activeLang.code, () => {})}
+                    <button onClick={() => tts(m.text, activeLang.code, () => {})}
                       style={{ background: "none", border: "none", cursor: "pointer", padding: 0, marginLeft: 4, color: "#9E9E9E", display: "flex" }}>
                       <Volume2 size={11} />
                     </button>
@@ -705,7 +718,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
         />
 
         <button
-          onClick={() => { setSpeakerEnabled(p => !p); if (speakerEnabled) cancelAllSpeech(); }}
+          onClick={() => { setSpeakerEnabled(p => !p); if (speakerEnabled) window.speechSynthesis?.cancel(); }}
           style={{ width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", flexShrink: 0, background: speakerEnabled ? "#E8F5E9" : "#F5F5F5", display: "flex", alignItems: "center", justifyContent: "center" }}
         >
           {speakerEnabled ? <Volume2 size={18} color="#2E7D32" /> : <VolumeX size={18} color="#9E9E9E" />}
