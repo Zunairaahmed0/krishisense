@@ -1,15 +1,31 @@
 const SARVAM_KEY = import.meta.env.VITE_SARVAM_KEY;
 
-let _activeAudio = null;
-let _cancelled   = false;
+let _activeSource = null; // AudioBufferSourceNode or Audio element
+let _audioCtx     = null;
+let _cancelled    = false;
+
+// Call synchronously inside a user-gesture handler (button click) to unlock the
+// AudioContext so subsequent async audio.play() / source.start() calls are allowed
+// by the browser's autoplay policy.
+export const unlockAudio = () => {
+  if (typeof window === "undefined") return;
+  if (!_audioCtx) {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (_audioCtx.state === "suspended") _audioCtx.resume().catch(() => {});
+};
 
 export const cancelAllSpeech = () => {
   _cancelled = true;
-  if (_activeAudio instanceof Audio) {
-    _activeAudio.pause();
-    _activeAudio.src = "";
+  if (_activeSource) {
+    if (typeof _activeSource.stop === "function") {
+      try { _activeSource.stop(); } catch (_) {}
+    } else if (_activeSource instanceof Audio) {
+      _activeSource.pause();
+      _activeSource.src = "";
+    }
   }
-  _activeAudio = null;
+  _activeSource = null;
   try { window.speechSynthesis?.cancel(); } catch (_) {}
 };
 
@@ -51,19 +67,47 @@ export const speakWithSarvam = async (text, langCode, speaker = "shubh") => {
       const base64 = data.audios?.[0];
       if (!base64 || _cancelled) continue;
 
+      // Decode via AudioContext (works in async callbacks after any user interaction;
+      // new Audio().play() is blocked by autoplay policy unless called synchronously
+      // inside a user gesture — AudioContext + BufferSource has no such restriction).
       await new Promise((resolve) => {
-        const audio = new Audio(`data:audio/wav;base64,${base64}`);
-        _activeAudio = audio;
-        const done = () => { if (_activeAudio === audio) _activeAudio = null; resolve(); };
-        audio.onended = done;
-        audio.onerror = done;
-        audio.play().catch(done);
+        const binary = atob(base64);
+        const bytes  = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+        if (!_audioCtx) {
+          _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        const play = (buf) => {
+          if (_cancelled) { resolve(); return; }
+          const source = _audioCtx.createBufferSource();
+          source.buffer = buf;
+          source.connect(_audioCtx.destination);
+          source.onended = () => { if (_activeSource === source) _activeSource = null; resolve(); };
+          _activeSource = source;
+          source.start(0);
+        };
+
+        const resume = _audioCtx.state === "suspended" ? _audioCtx.resume() : Promise.resolve();
+        resume
+          .then(() => _audioCtx.decodeAudioData(bytes.buffer.slice(0)))
+          .then(play)
+          .catch(() => {
+            // AudioContext fallback: try plain Audio element
+            const audio = new Audio(`data:audio/wav;base64,${base64}`);
+            _activeSource = audio;
+            const done = () => { if (_activeSource === audio) _activeSource = null; resolve(); };
+            audio.onended = done;
+            audio.onerror = done;
+            audio.play().catch(done);
+          });
       });
     }
     return true;
   } catch (e) {
     console.warn("Sarvam TTS:", e.message);
-    _activeAudio = null;
+    _activeSource = null;
     return false;
   }
 };

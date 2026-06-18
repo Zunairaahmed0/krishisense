@@ -20,6 +20,7 @@ import Toast, { useToast } from "./components/ui/Toast";
 import { api } from "./lib/api";
 import { askAI } from "./lib/ai";
 import { parseJSON } from "./lib/utils";
+import { unlockAudio } from "./lib/sarvamTTS";
 import { firebaseApp } from "./lib/firebase";
 import { initNotifications, getNotificationStatus } from "./lib/notifications";
 import AlertBanner from "./components/ui/AlertBanner";
@@ -596,7 +597,7 @@ export default function App() {
       {tab !== "sustain" && (
         <button
           className="fab"
-          onClick={() => setExpertCall(true)}
+          onClick={() => { unlockAudio(); setExpertCall(true); }}
           style={{
             width:          54,
             height:         54,
