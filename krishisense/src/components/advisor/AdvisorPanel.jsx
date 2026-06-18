@@ -28,51 +28,48 @@ const SUGGESTIONS = [
 ];
 
 // ─── Reliable TTS ──────────────────────────────────────────────────────────────
-// tts() must stay synchronous — any await before speak() breaks mobile autoplay.
-// Voices are preloaded into a module-level ref on component mount instead.
-let _cachedVoices = [];
-const _loadVoicesOnce = () => {
-  if (_cachedVoices.length) return;
-  const v = window.speechSynthesis?.getVoices() || [];
-  if (v.length) { _cachedVoices = v; return; }
-  window.speechSynthesis?.addEventListener("voiceschanged", () => {
-    _cachedVoices = window.speechSynthesis?.getVoices() || [];
-  }, { once: true });
-};
+// Chrome loads voices asynchronously. We wait for them before every speak call.
+const loadVoices = () =>
+  new Promise((resolve) => {
+    const voices = window.speechSynthesis?.getVoices() || [];
+    if (voices.length > 0) { resolve(voices); return; }
+    const onReady = () => {
+      window.speechSynthesis.removeEventListener("voiceschanged", onReady);
+      resolve(window.speechSynthesis.getVoices());
+    };
+    window.speechSynthesis.addEventListener("voiceschanged", onReady);
+    setTimeout(() => resolve(window.speechSynthesis?.getVoices() || []), 2500);
+  });
 
-const tts = (text, langCode, onDone) => {
+const tts = async (text, langCode, onDone) => {
   if (!text || !window.speechSynthesis) { onDone?.(); return; }
-
-  // Chrome TTS silently stops on long text (>~200 chars); truncate at sentence boundary
-  const MAX = 220;
-  const safeText = text.length > MAX
-    ? (text.slice(0, MAX).replace(/[.!?,।][^.!?,।]*$/, "") || text.slice(0, MAX)) + "…"
-    : text;
-
   window.speechSynthesis.cancel();
+  await new Promise(r => setTimeout(r, 80)); // flush cancel
 
-  const lang  = langCode || "hi-IN";
-  const base  = lang.split("-")[0];
+  const voices = await loadVoices();
+  const lang = langCode || "hi-IN";
   const voice =
-    _cachedVoices.find(v => v.lang === lang) ||
-    _cachedVoices.find(v => v.lang.startsWith(base)) ||
-    _cachedVoices.find(v => v.lang.startsWith("en")) || // English fallback (not Hindi)
+    voices.find(v => v.lang === lang) ||
+    voices.find(v => v.lang.startsWith(lang.split("-")[0])) ||
+    voices.find(v => v.lang.startsWith("hi")) || // fallback to Hindi
     null;
 
-  const utter = new SpeechSynthesisUtterance(safeText);
+  const utter = new SpeechSynthesisUtterance(text);
   utter.lang  = lang;
   utter.rate  = 0.88;
-  utter.pitch = /[!！]|urgent|warning|सावधान|खतरा/i.test(safeText) ? 1.1 : 1.0;
+  utter.pitch = /[!！]|urgent|warning|सावधान|खतरा/i.test(text) ? 1.1 : 1.0;
   if (voice) utter.voice = voice;
 
-  // Prevent Chrome garbage-collecting the utterance mid-playback
+  // Prevent garbage collection (Chrome bug)
   window._krishiUtter = utter;
 
   let finished = false;
   const done = () => { if (!finished) { finished = true; window._krishiUtter = null; onDone?.(); } };
+
   utter.onend   = done;
   utter.onerror = done;
-  setTimeout(done, Math.max(5000, safeText.split(/\s+/).length * 500 + 2000));
+  // Safety timeout: ~500ms per word + 3s buffer
+  setTimeout(done, Math.max(6000, text.split(/\s+/).length * 550 + 3000));
 
   window.speechSynthesis.speak(utter);
 };
@@ -188,9 +185,6 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [msgs, interim, status]);
-
-  // Preload voices so tts() can pick one synchronously (no await needed)
-  useEffect(() => { _loadVoicesOnce(); }, []);
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
   useEffect(() => {
