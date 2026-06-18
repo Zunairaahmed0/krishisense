@@ -389,13 +389,24 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [weather, loc, user, fcmToken, scans]);
 
-  // Backend health check — runs once on mount
+  // Backend health check — retries to handle Render cold-start (~30-60s)
   useEffect(() => {
     const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
     if (!backendUrl) return;
-    fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) })
-      .then(r => { if (!r.ok) throw new Error("not ok"); })
-      .catch(() => setBackendAvailable(false));
+    let cancelled = false;
+    const ping = async () => {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (cancelled) return;
+        try {
+          const r = await fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(20_000) });
+          if (r.ok) { setBackendAvailable(true); return; }
+        } catch {}
+        if (attempt < 3) await new Promise(res => setTimeout(res, 15_000));
+      }
+      if (!cancelled) setBackendAvailable(false);
+    };
+    ping();
+    return () => { cancelled = true; };
   }, []);
 
   // Tab-specific headers
