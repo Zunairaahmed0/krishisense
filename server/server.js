@@ -84,8 +84,9 @@ setInterval(() => {
   }
 }, 5 * 60_000);
 
-// ── Health check ───────────────────────────────────────────────────────────────
+// ── Health check (open CORS — no secrets, just availability ping) ─────────────
 app.get("/health", (req, res) => {
+  res.set("Access-Control-Allow-Origin", "*");
   res.json({ status: "ok", service: "KrishiSense API", ts: new Date().toISOString() });
 });
 

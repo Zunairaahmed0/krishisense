@@ -391,13 +391,15 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [weather, loc, user, fcmToken, scans]);
 
-  // Backend health check — runs once on mount
+  // Backend health check — runs once on mount, retries once for Render cold-start
   useEffect(() => {
-    console.log("[KrishiSense] Backend URL:", import.meta.env.VITE_BACKEND_URL || "NOT SET");
     const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
     if (!backendUrl) return;
-    fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) })
-      .then(r => { if (!r.ok) throw new Error("not ok"); })
+    const check = () =>
+      fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(15_000) })
+        .then(r => { if (!r.ok) throw new Error("not ok"); return true; });
+    check()
+      .catch(() => new Promise(r => setTimeout(r, 8000)).then(check))
       .catch(() => setBackendAvailable(false));
   }, []);
 
