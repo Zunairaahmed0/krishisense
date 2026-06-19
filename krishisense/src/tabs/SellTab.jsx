@@ -643,7 +643,6 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
                 animation:"pulse 1.5s infinite" }} />
               LIVE · {marketData.totalMarkets} mandis
             </div>
-            )
           )}
         </div>
         <button onClick={() => setMandiModal(true)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.p3, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>View All <ChevronRight size={14}/></button>
