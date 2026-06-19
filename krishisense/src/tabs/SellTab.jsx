@@ -29,6 +29,7 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg, user }) {
   const [compareData, setCompareData] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState(Date.now());
 
   // Build location-aware buyer list from actual city/state
   const buildLocalBuyers = (city, state, pricePerKg) => {
@@ -236,6 +237,7 @@ Give HOLD or SELL recommendation. Return ONLY valid JSON:
         localDistrict:   pricesData.district || districtName,
       };
       setMarketData(mktData);
+      setLastRefreshed(Date.now());
       try { localStorage.setItem("ks_last_market_v2", JSON.stringify(mktData)); } catch {}
 
       if (voiceOn && rec) {
@@ -361,6 +363,11 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
   }, [crop, loc?.state, loc?.name]);
 
   useEffect(() => {
+    const timer = setInterval(() => fetchLiveMarketData(crop), 10 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [crop, loc?.state]);
+
+  useEffect(() => {
     if (showCompare && !compareData) fetchCompareData();
   }, [showCompare]);
 
@@ -370,6 +377,11 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
   const up = currentData.isUp;
   const fullData = [...currentData.chartPrices, ...currentData.forecastPrices];
   const cropEmoji = CROP_EMOJIS[crop] || "🌾";
+
+  const minutesAgo = Math.floor((Date.now() - lastRefreshed) / 60000);
+  const freshLabel = minutesAgo < 1 ? "Just now"
+    : minutesAgo < 60 ? `${minutesAgo}m ago`
+    : `${Math.floor(minutesAgo / 60)}h ago`;
 
   return (
     <div style={{ paddingBottom: 16 }}>
@@ -411,27 +423,30 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
           <div style={{ fontSize: 12, color: C.mut }}>AI-powered market intelligence</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            onClick={() => fetchLiveMarketData(crop)}
-            disabled={loading}
-            style={{
-              background: "none",
-              border: `1px solid ${C.brd}`,
-              borderRadius: 10,
-              padding: "6px 12px",
-              cursor: "pointer",
-              fontSize: 11,
-              fontWeight: 700,
-              color: C.p2,
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              boxShadow: C.shadow,
-              opacity: loading ? 0.6 : 1,
-            }}
-          >
-            {loading ? <><RefreshCw size={12} style={{ marginRight:4 }} />Updating...</> : <><RefreshCw size={12} style={{ marginRight:4 }} />Refresh</>}
-          </button>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:3 }}>
+            <button
+              onClick={() => fetchLiveMarketData(crop)}
+              disabled={loading}
+              style={{
+                background: "none",
+                border: `1px solid ${C.brd}`,
+                borderRadius: 10,
+                padding: "6px 12px",
+                cursor: "pointer",
+                fontSize: 11,
+                fontWeight: 700,
+                color: C.p2,
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                boxShadow: C.shadow,
+                opacity: loading ? 0.6 : 1,
+              }}
+            >
+              {loading ? <><RefreshCw size={12} style={{ marginRight:4 }} />Updating...</> : <><RefreshCw size={12} style={{ marginRight:4 }} />Refresh</>}
+            </button>
+            <span style={{ fontSize:9, color:C.mut, fontWeight:600 }}>Updated {freshLabel}</span>
+          </div>
           <div style={{ width:44, height:44, borderRadius:12, background:C.tint, display:"flex", alignItems:"center", justifyContent:"center" }}><TrendingUp size={24} color={C.p2} /></div>
         </div>
       </div>
@@ -618,6 +633,16 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
                 }} />
                 LIVE · {marketData.localDistrict ? `Near ${marketData.localDistrict}` : marketData.dataSource}
               </div>
+            )
+          )}
+          {marketData?.dataSource === "data.gov.in / AGMARKNET" && marketData?.totalMarkets > 0 && (
+            <div style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px",
+              borderRadius:99, background:"#E8F5E9", border:"1px solid #C8E6C9",
+              fontSize:9, fontWeight:700, color:C.p2 }}>
+              <div style={{ width:5, height:5, borderRadius:"50%", background:C.p3,
+                animation:"pulse 1.5s infinite" }} />
+              LIVE · {marketData.totalMarkets} mandis
+            </div>
             )
           )}
         </div>
