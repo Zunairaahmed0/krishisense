@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ChevronLeft, Volume2, VolumeX, Keyboard, PhoneOff, Mic, Send, Phone, Leaf, CheckCircle2, Lock } from "lucide-react";
+import { ChevronLeft, Volume2, VolumeX, Keyboard, PhoneOff, Mic, Send, Phone } from "lucide-react";
 import { C } from "../../constants/theme";
 import { askAI } from "../../lib/ai";
 import { getLang, buildPrompt, detectLanguage } from "../../lib/voiceAI";
@@ -367,7 +367,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
     <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
       {avatar
         ? <img src={avatar} alt="AI" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        : <div style={{ width: "100%", height: "100%", background: "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center" }}><Leaf size={size * 0.4} color="#22A05D" /></div>
+        : <div style={{ width: "100%", height: "100%", background: "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: size * 0.4 }}>🌿</div>
       }
     </div>
   );
@@ -379,7 +379,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
         <div>
           <p style={{ margin: 0, paddingBottom: 6, fontSize: 13, lineHeight: 1.65 }}>{parts[0].trim()}</p>
           <div style={{ borderTop: "1px dashed #C8E6C9", paddingTop: 8, marginTop: 4 }}>
-            <span style={{ color: "#2E7D32", fontWeight: 700, fontSize: 12, display: "flex", alignItems: "center", gap: 4, marginBottom: 3 }}><CheckCircle2 size={12} color="#2E7D32" /> Recommended:</span>
+            <span style={{ color: "#2E7D32", fontWeight: 700, fontSize: 12, display: "block", marginBottom: 3 }}>✅ Recommended:</span>
             <p style={{ margin: 0, color: "#1B5E20", fontStyle: "italic", fontSize: 13, lineHeight: 1.65 }}>{parts.slice(2).join("").trim()}</p>
           </div>
         </div>
@@ -390,9 +390,9 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
 
   // Status display config
   const sc = {
-    listening: { label: "Listening...",  dot: "#81C784", bg: "rgba(129,199,132,0.25)" },
-    thinking:  { label: "Thinking...",   dot: "#FFD54F", bg: "rgba(255,213,79,0.25)"  },
-    speaking:  { label: "Speaking...",   dot: "#64B5F6", bg: "rgba(100,181,246,0.25)" },
+    listening: { label: "🎙️ Listening...",  dot: "#81C784", bg: "rgba(129,199,132,0.25)" },
+    thinking:  { label: "⏳ Thinking...",   dot: "#FFD54F", bg: "rgba(255,213,79,0.25)"  },
+    speaking:  { label: "🔊 Speaking...",   dot: "#64B5F6", bg: "rgba(100,181,246,0.25)" },
     idle:      { label: "Tap to speak",     dot: "#9E9E9E", bg: "rgba(255,255,255,0.12)" },
   }[status] || { label: "...", dot: "#9E9E9E", bg: "rgba(255,255,255,0.12)" };
 
@@ -442,7 +442,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
             <div style={{ width: 100, height: 100, borderRadius: "50%", overflow: "hidden", border: "3px solid rgba(255,255,255,0.35)" }}>
               {avatar
                 ? <img src={avatar} alt="AI" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                : <div style={{ width: "100%", height: "100%", background: "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center" }}><Leaf size={40} color="#22A05D" /></div>
+                : <div style={{ width: "100%", height: "100%", background: "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 40 }}>🌿</div>
               }
             </div>
           </div>
@@ -740,7 +740,7 @@ export default function AdvisorPanel({ onClose, loc, weather, botImg, voiceBotIm
 
       {/* Secure badge */}
       <div style={{ background: "#fff", padding: "6px 0 8px", textAlign: "center", borderTop: "1px solid #EEEEEE", flexShrink: 0 }}>
-        <span style={{ fontSize: 10, fontWeight: 700, color: "#2E7D32", display: "inline-flex", alignItems: "center", gap: 4 }}><Lock size={10} color="#2E7D32" /> Secure & private conversation</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#2E7D32" }}>🔒 Secure & private conversation</span>
       </div>
     </div>
   );
