@@ -340,5 +340,62 @@ export const firebaseCore = {
       const filtered = scans.filter(s => s.id !== scanId);
       setLocalData(LOCAL_SCANS_KEY, filtered);
     }
-  }
+  },
+
+  // Save a crop listing to Firestore or LocalStorage
+  async saveMarketListing(listing) {
+    const activeUser = isRealFirebase
+      ? authInstance.currentUser
+      : getLocalData(ACTIVE_SESSION_KEY, null);
+    if (!activeUser) throw new Error("Authentication required");
+
+    const item = {
+      ...listing,
+      sellerId: activeUser.uid,
+      sellerName: listing.sellerName || "Anonymous Farmer",
+      createdAt: new Date().toISOString(),
+      active: true,
+    };
+
+    if (isRealFirebase) {
+      const docRef = await addDoc(collection(dbInstance, "marketListings"), item);
+      return { id: docRef.id, ...item };
+    } else {
+      const listings = getLocalData("krishi_local_listings", []);
+      const newItem = { id: "ml-" + Math.random().toString(36).slice(2), ...item };
+      listings.unshift(newItem);
+      setLocalData("krishi_local_listings", listings);
+      return newItem;
+    }
+  },
+
+  // Fetch all active listings (not just by current user)
+  async fetchAllListings() {
+    if (isRealFirebase) {
+      const q = query(
+        collection(dbInstance, "marketListings"),
+        where("active", "==", true)
+      );
+      const snapshot = await getDocs(q);
+      const list = [];
+      snapshot.forEach(d => list.push({ id: d.id, ...d.data() }));
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      return list;
+    } else {
+      return getLocalData("krishi_local_listings", []);
+    }
+  },
+
+  // Delete a listing (only callable by owner)
+  async deleteMarketListing(listingId, userId) {
+    if (isRealFirebase) {
+      await deleteDoc(doc(dbInstance, "marketListings", listingId));
+    } else {
+      const listings = getLocalData("krishi_local_listings", []);
+      setLocalData(
+        "krishi_local_listings",
+        listings.filter(l => !(l.id === listingId && l.sellerId === userId))
+      );
+    }
+  },
 };

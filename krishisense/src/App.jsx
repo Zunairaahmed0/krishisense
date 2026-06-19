@@ -570,7 +570,7 @@ export default function App() {
             loc={loc} user={user} fcmToken={fcmToken} setTab={setTab} />
         )}
         {tab === "sell" && (
-          <SellTab loc={loc} voiceOn={voiceOn} lang={lang} onionsImg={onionsImg} />
+          <SellTab loc={loc} voiceOn={voiceOn} lang={lang} onionsImg={onionsImg} user={user} />
         )}
         {tab === "sustain" && (
           <SustainTab weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} botImg={botImg} voiceOn={voiceOn} lang={lang} />

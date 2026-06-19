@@ -13,10 +13,11 @@ import Badge from "../components/ui/Badge";
 import Sparkline from "../components/ui/Sparkline";
 import Spinner from "../components/ui/Spinner";
 import LiveDot from "../components/ui/LiveDot";
+import MarketplaceSection from "../components/ui/MarketplaceSection";
 
 const CROP_EMOJIS = { Onion: "🧅", Tomato: "🍅", Wheat: "🌾", Cotton: "🌿", Rice: "🌾" };
 
-export default function SellTab({ loc, voiceOn, lang, onionsImg }) {
+export default function SellTab({ loc, voiceOn, lang, onionsImg, user }) {
   const demoMode = useDemoMode();
   const [crop, setCrop] = useState("Onion");
   const [marketData, setMarketData] = useState(null);
@@ -740,6 +741,11 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
         >
           <Volume2 size={12} /> Listen
         </button>
+      </div>
+
+      {/* ── Farmer Marketplace ─────────────────────────────── */}
+      <div style={{ borderTop: `1px solid ${C.brd}`, marginTop: 24, paddingTop: 8 }}>
+        <MarketplaceSection user={user} loc={loc} lang={lang} />
       </div>
     </div>
   );

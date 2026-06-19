@@ -112,5 +112,17 @@ export const api = {
    */
   async deleteScan(scanId) {
     return firebaseCore.deleteScanRecord(scanId);
-  }
+  },
+
+  async saveMarketListing(listing) {
+    return firebaseCore.saveMarketListing(listing);
+  },
+
+  async fetchAllListings() {
+    return firebaseCore.fetchAllListings();
+  },
+
+  async deleteMarketListing(listingId, userId) {
+    return firebaseCore.deleteMarketListing(listingId, userId);
+  },
 };
