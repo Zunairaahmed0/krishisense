@@ -14,32 +14,34 @@ const STATUS_COLOR = { idle: C.mut, listening: C.p3, thinking: C.amber, speaking
 const NUM_BARS = 24;
 
 const buildGreeting = (lang, loc, weather) => {
-  const place   = loc?.name || "";
-  const temp    = weather?.current?.temperature_2m;
-  const tempStr = temp != null ? `${temp}°C` : "";
+  const place      = loc?.name || "";
+  const temp       = weather?.current?.temperature_2m;
+  const tempStr    = temp != null ? `${temp}°C` : "";
+  const rainChance = weather?.daily?.precipitation_probability_max?.[0] ?? null;
+  const rainNote   = rainChance != null && rainChance >= 50 ? `, ${rainChance}% rain chance` : "";
 
   const placeStr = place ? ` You're calling from ${place}.` : "";
-  const tempFrag  = tempStr ? ` Today it's ${tempStr}.` : "";
+  const tempFrag = tempStr ? ` Today it's ${tempStr}${rainNote}.` : "";
 
   switch (lang.code.split("-")[0]) {
     case "mr":
-      return `मी KrishiSense चा AI शेती तज्ञ आहे.${place ? ` तुम्ही ${place} मधून आहात.` : ""}${tempStr ? ` आज तापमान ${tempStr} आहे.` : ""} मी तुम्हाला कशी मदत करू?`;
+      return `मी KrishiSense चा AI शेती तज्ञ आहे.${place ? ` तुम्ही ${place} मधून आहात.` : ""}${tempStr ? ` आज ${tempStr}${rainChance >= 50 ? `, पाऊस ${rainChance}%` : ""}.` : ""} मी तुम्हाला कशी मदत करू?`;
     case "hi":
-      return `मैं KrishiSense का AI कृषि विशेषज्ञ हूं।${place ? ` आप ${place} से हैं।` : ""}${tempStr ? ` आज तापमान ${tempStr} है।` : ""} मैं आपकी कैसे मदद कर सकता हूं?`;
+      return `मैं KrishiSense का AI कृषि विशेषज्ञ हूं।${place ? ` आप ${place} से हैं।` : ""}${tempStr ? ` आज ${tempStr}${rainChance >= 50 ? `, बारिश ${rainChance}%` : ""}.` : ""} मैं आपकी कैसे मदद कर सकता हूं?`;
     case "te":
-      return `నేను KrishiSense AI వ్యవసాయ నిపుణుడిని.${place ? ` మీరు ${place} నుండి ఉన్నారు.` : ""}${tempStr ? ` ఈరోజు ఉష్ణోగ్రత ${tempStr}.` : ""} నేను మీకు ఎలా సహాయం చేయగలను?`;
+      return `నేను KrishiSense AI వ్యవసాయ నిపుణుడిని.${place ? ` మీరు ${place} నుండి ఉన్నారు.` : ""}${tempStr ? ` ఈరోజు ${tempStr}.` : ""} నేను మీకు ఎలా సహాయం చేయగలను?`;
     case "ta":
-      return `நான் KrishiSense AI விவசாய நிபுணர்.${place ? ` நீங்கள் ${place} இல் இருக்கிறீர்கள்.` : ""}${tempStr ? ` இன்று வெப்பநிலை ${tempStr}.` : ""} நான் உங்களுக்கு எப்படி உதவலாம்?`;
+      return `நான் KrishiSense AI விவசாய நிபுணர்.${place ? ` நீங்கள் ${place} இல் இருக்கிறீர்கள்.` : ""}${tempStr ? ` இன்று ${tempStr}.` : ""} நான் உங்களுக்கு எப்படி உதவலாம்?`;
     case "kn":
-      return `ನಾನು KrishiSense AI ಕೃಷಿ ತಜ್ಞ.${place ? ` ನೀವು ${place} ನಿಂದ ಇದ್ದೀರಿ.` : ""}${tempStr ? ` ಇಂದು ತಾಪಮಾನ ${tempStr}.` : ""} ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?`;
+      return `ನಾನು KrishiSense AI ಕೃಷಿ ತಜ್ಞ.${place ? ` ನೀವು ${place} ನಿಂದ ಇದ್ದೀರಿ.` : ""}${tempStr ? ` ಇಂದು ${tempStr}.` : ""} ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ?`;
     case "gu":
-      return `હું KrishiSense AI ખેતી નિષ્ણાત છું.${place ? ` તમે ${place} થી છો.` : ""}${tempStr ? ` આજે તાપમાન ${tempStr} છે.` : ""} હું તમારી કેવી રીતે મદદ કરી શકું?`;
+      return `હું KrishiSense AI ખેતી નિષ્ણાત છું.${place ? ` તમે ${place} થી છો.` : ""}${tempStr ? ` આજે ${tempStr}.` : ""} હું તમારી કેવી રીતે મદદ કરી શકું?`;
     case "bn":
-      return `আমি KrishiSense AI কৃষি বিশেষজ্ঞ।${place ? ` আপনি ${place} থেকে এসেছেন।` : ""}${tempStr ? ` আজ তাপমাত্রা ${tempStr}।` : ""} আমি আপনাকে কীভাবে সাহায্য করতে পারি?`;
+      return `আমি KrishiSense AI কৃষি বিশেষজ্ঞ।${place ? ` আপনি ${place} থেকে এসেছেন।` : ""}${tempStr ? ` আজ ${tempStr}।` : ""} আমি আপনাকে কীভাবে সাহায্য করতে পারি?`;
     case "pa":
-      return `ਮੈਂ KrishiSense AI ਖੇਤੀ ਮਾਹਿਰ ਹਾਂ।${place ? ` ਤੁਸੀਂ ${place} ਤੋਂ ਹੋ।` : ""}${tempStr ? ` ਅੱਜ ਤਾਪਮਾਨ ${tempStr} ਹੈ।` : ""} ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?`;
+      return `ਮੈਂ KrishiSense AI ਖੇਤੀ ਮਾਹਿਰ ਹਾਂ।${place ? ` ਤੁਸੀਂ ${place} ਤੋਂ ਹੋ।` : ""}${tempStr ? ` ਅੱਜ ${tempStr}.` : ""} ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?`;
     case "ml":
-      return `ഞാൻ KrishiSense AI കൃഷി വിദഗ്ദ്ധൻ.${place ? ` നിങ്ങൾ ${place} ൽ നിന്നാണ്.` : ""}${tempStr ? ` ഇന്ന് താപനില ${tempStr}.` : ""} ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കട്ടെ?`;
+      return `ഞാൻ KrishiSense AI കൃഷി വിദഗ്ദ്ധൻ.${place ? ` നിങ്ങൾ ${place} ൽ നിന്നാണ്.` : ""}${tempStr ? ` ഇന്ന് ${tempStr}.` : ""} ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കട്ടെ?`;
     default:
       return `I'm KrishiSense, your AI farming expert.${placeStr}${tempFrag} How can I help you today?`;
   }
@@ -182,8 +184,21 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
     setPhase(S.THINKING);
     setMessages(prev => [...prev, { role: "user", text: transcript }]);
 
-    const t   = weather?.current?.temperature_2m;
-    const hum = weather?.current?.relative_humidity_2m;
+    const t           = weather?.current?.temperature_2m;
+    const hum         = weather?.current?.relative_humidity_2m;
+    const wind        = weather?.current?.windspeed_10m;
+    const rainNow     = weather?.current?.precipitation;
+    const rainToday   = weather?.daily?.precipitation_probability_max?.[0];
+    const rainTomorrow= weather?.daily?.precipitation_probability_max?.[1];
+
+    const weatherCtx = [
+      t    != null ? `${t}°C`                          : null,
+      hum  != null ? `humidity ${hum}%`                : null,
+      wind != null ? `wind ${wind} km/h`               : null,
+      rainNow > 0  ? `raining now (${rainNow}mm)`      : null,
+      rainToday    != null ? `rain chance today ${rainToday}%`    : null,
+      rainTomorrow != null ? `rain chance tomorrow ${rainTomorrow}%` : null,
+    ].filter(Boolean).join(", ");
 
     // ── Language detection ────────────────────────────────────────────────────
     // Groq gives us a base language code. We also check the script to catch Hinglish
@@ -215,8 +230,8 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
 
     const system = [
       "You are KrishiSense AI farming expert having a voice call with an Indian farmer.",
-      loc?.name ? `Farm location: ${loc.name}, ${loc.state}.` : "",
-      t != null  ? `Current weather: ${t}°C, ${hum ?? "?"}% humidity.` : "",
+      loc?.name  ? `Farm location: ${loc.name}, ${loc.state}.`     : "",
+      weatherCtx ? `Current weather: ${weatherCtx}.`               : "",
       langRule,
       "Keep your reply to 2-3 sentences. No bullet points, no markdown — spoken words only.",
       "End with one short practical follow-up question.",
