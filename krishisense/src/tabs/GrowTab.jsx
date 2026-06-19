@@ -14,7 +14,7 @@ import { useDemoMode } from "../lib/demoMode";
 import { DEMO_DISEASE } from "../lib/demoData";
 import { useToast } from "../components/ui/Toast";
 
-export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg, scans = [], loadingScans = false, onScanSaved, onScanDeleted, loc, user, fcmToken }) {
+export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg, scans = [], loadingScans = false, onScanSaved, onScanDeleted, loc, user, fcmToken, setTab }) {
   const demoMode = useDemoMode();
   const { showToast } = useToast();
   const [selectedScan, setSelectedScan] = useState(null);
@@ -533,6 +533,30 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
               Share Report →
             </button>
           </div>
+
+          {res.status === "diseased" && (
+            <button
+              onClick={() => setTab("claim")}
+              style={{
+                width: "calc(100% - 28px)",
+                margin: "8px 14px 0",
+                padding: 13,
+                borderRadius: 12,
+                border: "none",
+                background: "linear-gradient(135deg, #1565C0, #1976D2)",
+                color: "white",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+              }}
+            >
+              🛡️ Use This Diagnosis to File Insurance Claim
+            </button>
+          )}
 
           <button onClick={reset} style={{ width: "calc(100% - 28px)", margin: "8px 14px 0", padding: 11, borderRadius: 12, border: `1px solid ${C.brd}`, background: C.surface, color: C.mut, fontSize: 12, cursor: "pointer" }}>
             <RefreshCw size={13} style={{ marginRight:5, verticalAlign:"middle" }} /> Analyze Another Leaf

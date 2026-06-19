@@ -121,7 +121,7 @@ function StepsModal({ scheme, onClose }) {
   );
 }
 
-function SchemeCard({ scheme, isApplied, onToggleApplied }) {
+function SchemeCard({ scheme, isApplied, onToggleApplied, onClaimTab }) {
   const [expanded, setExpanded] = useState(false);
   const [showSteps, setShowSteps] = useState(false);
 
@@ -241,6 +241,26 @@ function SchemeCard({ scheme, isApplied, onToggleApplied }) {
                 {isApplied ? "✓ Applied!" : "Mark Applied"}
               </button>
             </div>
+
+            {scheme.id === "pmfby" && (
+              <button
+                onClick={() => onClaimTab?.()}
+                style={{
+                  width: "100%",
+                  padding: "11px 8px",
+                  marginTop: 8,
+                  borderRadius: 12,
+                  border: "none",
+                  background: "#1565C0",
+                  color: "white",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                📋 Build Crop Loss Evidence Package
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -248,7 +268,7 @@ function SchemeCard({ scheme, isApplied, onToggleApplied }) {
   );
 }
 
-export default function SchemesTab({ user }) {
+export default function SchemesTab({ user, setTab }) {
   const { showToast } = useToast();
   const [filter, setFilter] = useState("All");
   const [applied, setApplied] = useState(() => {
@@ -357,6 +377,7 @@ export default function SchemesTab({ user }) {
             scheme={scheme}
             isApplied={applied.includes(scheme.id)}
             onToggleApplied={toggleApplied}
+            onClaimTab={() => setTab("claim")}
           />
         ))}
       </div>

@@ -12,6 +12,7 @@ import GrowTab from "./tabs/GrowTab";
 import SellTab from "./tabs/SellTab";
 import SustainTab from "./tabs/SustainTab";
 import SchemesTab from "./tabs/SchemesTab";
+import ClaimTab from "./tabs/ClaimTab";
 import AuthScreen from "./components/auth/AuthScreen";
 import MenuDrawer from "./components/ui/MenuDrawer";
 import NotifPanel from "./components/ui/NotifPanel";
@@ -406,6 +407,7 @@ export default function App() {
     sell:    { title: "Smart Selling Insights",   subtitle: "AI-powered market intelligence" },
     sustain: { title: "SUSTAIN",                  subtitle: "Sustainable Farming • Save Resources" },
     schemes: { title: "Government Schemes",       subtitle: "Benefits you qualify for", iconSrc: "/assets/schemes/govt.png" },
+    claim:   { title: "Insurance Claim Builder",  subtitle: "PMFBY crop loss documentation", showBack: true },
   };
 
   const hdr = TAB_HEADERS[tab] || {};
@@ -564,7 +566,7 @@ export default function App() {
         {tab === "grow" && (
           <GrowTab weather={weather} weatherLoading={weatherLoading} voiceOn={voiceOn} lang={lang} botImg={botImg}
             scans={scans} loadingScans={loadingScans} onScanSaved={fetchScans} onScanDeleted={fetchScans}
-            loc={loc} user={user} fcmToken={fcmToken} />
+            loc={loc} user={user} fcmToken={fcmToken} setTab={setTab} />
         )}
         {tab === "sell" && (
           <SellTab loc={loc} voiceOn={voiceOn} lang={lang} onionsImg={onionsImg} />
@@ -573,7 +575,10 @@ export default function App() {
           <SustainTab weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} botImg={botImg} voiceOn={voiceOn} lang={lang} />
         )}
         {tab === "schemes" && (
-          <SchemesTab user={user} />
+          <SchemesTab user={user} setTab={setTab} />
+        )}
+        {tab === "claim" && (
+          <ClaimTab user={user} loc={loc} scans={scans} lang={lang} setTab={setTab} />
         )}
         </ErrorBoundary>
       </div>
