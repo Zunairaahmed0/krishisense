@@ -332,35 +332,39 @@ export default function App() {
     }
   }, [user, fetchScans]);
 
-  // Callable from anywhere — requests permission + gets FCM token
-  const enableNotifications = useCallback(async () => {
+  // Internal: init FCM and store token. silent=true suppresses error toasts (auto-init on load).
+  const initFCM = useCallback(async (silent = false) => {
     if (!user || !firebaseApp) return;
     const result = await initNotifications(firebaseApp, user.uid, loc);
-    console.log("[FCM] init result:", result);
     if (result.token) {
       setFcmToken(result.token);
       setNotifPermission("granted");
       localStorage.setItem("ks_fcm_token", result.token);
-      showToast("Push notifications enabled ✓", "success");
-    } else if (result.error === "permission_denied") {
-      showToast("Notification permission denied — allow it in browser settings", "error");
-    } else if (result.error === "sw_failed") {
-      showToast("Service worker failed: " + result.detail, "error");
-    } else if (result.error === "token_failed") {
-      showToast("FCM token error: " + result.detail, "error");
-    } else if (result.error === "no_token") {
-      showToast("FCM returned no token — check VAPID key", "error");
-    } else if (!result.supported) {
-      showToast("Push notifications not supported in this browser", "error");
+      if (!silent) showToast("Push notifications enabled ✓", "success");
+    } else if (!silent) {
+      if (result.error === "permission_denied") {
+        showToast("Notification permission denied — allow it in browser settings", "error");
+      } else if (result.error === "sw_failed") {
+        showToast("Service worker failed: " + result.detail, "error");
+      } else if (result.error === "token_failed") {
+        showToast("FCM token error: " + result.detail, "error");
+      } else if (result.error === "no_token") {
+        showToast("FCM returned no token — check VAPID key", "error");
+      } else if (!result.supported) {
+        showToast("Push notifications not supported in this browser", "error");
+      }
     }
   }, [user, showToast]);
 
-  // Initialize FCM push notifications silently after login
+  // Callable from anywhere — requests permission + gets FCM token (shows toasts)
+  const enableNotifications = useCallback(() => initFCM(false), [initFCM]);
+
+  // Initialize FCM push notifications silently after login (no error toasts)
   useEffect(() => {
     if (!user || !firebaseApp) return;
     const status = getNotificationStatus();
     setNotifPermission(status);
-    if (status === "granted") enableNotifications();
+    if (status === "granted") initFCM(true);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Check for weather-based disease/heat alerts after weather loads
