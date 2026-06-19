@@ -573,7 +573,7 @@ export default function App() {
           <SellTab loc={loc} voiceOn={voiceOn} lang={lang} onionsImg={onionsImg} user={user} />
         )}
         {tab === "sustain" && (
-          <SustainTab weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} botImg={botImg} voiceOn={voiceOn} lang={lang} />
+          <SustainTab weather={weather} weatherLoading={weatherLoading} weatherError={weatherError} loc={loc} locError={locError} botImg={botImg} voiceOn={voiceOn} lang={lang} scans={scans} />
         )}
         {tab === "schemes" && (
           <SchemesTab user={user} setTab={setTab} />
