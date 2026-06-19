@@ -392,6 +392,7 @@ export default function App() {
 
   // Backend health check — runs once on mount
   useEffect(() => {
+    console.log("[KrishiSense] Backend URL:", import.meta.env.VITE_BACKEND_URL || "NOT SET");
     const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
     if (!backendUrl) return;
     fetch(`${backendUrl}/health`, { signal: AbortSignal.timeout(5000) })

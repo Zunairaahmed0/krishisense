@@ -62,6 +62,7 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
   const isSpeakingRef  = useRef(false);
   const mutedRef       = useRef(false);
   const messagesEndRef = useRef(null);
+  const retryCountRef  = useRef(0);
 
   useEffect(() => { mutedRef.current = muted; }, [muted]);
 
@@ -93,16 +94,37 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
       setLevel(0);
       recorderRef.current = null;
 
-      // Blobs under ~1 KB are noise/silence — loop back
+      // Blobs under ~1 KB are noise/silence — count retries before giving up
       if (!isMountedRef.current || !blob || blob.size < 1000) {
+        retryCountRef.current += 1;
+        if (retryCountRef.current >= 3) {
+          retryCountRef.current = 0;
+          setPhase(S.IDLE);
+          setInterimText("❌ Couldn't hear you — check your microphone and tap to retry");
+          return;
+        }
         if (isMountedRef.current && !mutedRef.current) startRecording();
         return;
       }
 
       setPhase(S.THINKING);
-      const { transcript, langInfo } = await transcribeWithGroq(blob);
+
+      let transcript, langInfo;
+      try {
+        const result = await transcribeWithGroq(blob);
+        transcript = result.transcript;
+        langInfo = result.langInfo;
+      } catch (err) {
+        if (!isMountedRef.current) return;
+        setInterimText(`❌ ${err.message || "Voice service error — tap to retry"}`);
+        setPhase(S.IDLE);
+        retryCountRef.current = 0;
+        return;
+      }
+
       if (!isMountedRef.current) return;
 
+      retryCountRef.current = 0;
       setDetectedLang(langInfo);
 
       if (transcript.trim()) {
@@ -115,8 +137,21 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
       clearInterval(levelTimerRef.current);
       setLevel(0);
       recorderRef.current = null;
-      console.warn("Recording error:", e.message);
-      if (isMountedRef.current && !mutedRef.current) setTimeout(startRecording, 1000);
+
+      if (e.name === "NotAllowedError") {
+        setInterimText("🎤 Microphone access blocked — enable it in browser settings and reload");
+        setPhase(S.IDLE);
+      } else {
+        setInterimText(`❌ Recording error: ${e.message}`);
+        setPhase(S.IDLE);
+        retryCountRef.current += 1;
+        if (retryCountRef.current >= 3) {
+          retryCountRef.current = 0;
+          setInterimText("❌ Couldn't hear you — check your microphone and tap to retry");
+          return;
+        }
+        if (isMountedRef.current && !mutedRef.current) setTimeout(startRecording, 1000);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

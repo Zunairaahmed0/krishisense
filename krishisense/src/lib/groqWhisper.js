@@ -1,4 +1,4 @@
-const GROQ_KEY = import.meta.env.VITE_GROQ_KEY;
+const BACKEND = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
 
 // Sarvam v3 speaker names confirmed working for each language
 export const LANG_MAP = {
@@ -31,32 +31,30 @@ export const getLangFromState = (state) => {
 };
 
 export const transcribeWithGroq = async (audioBlob) => {
-  if (!GROQ_KEY) {
-    console.warn("No VITE_GROQ_KEY — skipping Whisper transcription");
+  if (!BACKEND) {
+    console.warn("[groq] No VITE_BACKEND_URL — voice transcription disabled");
     return { transcript: "", langInfo: DEFAULT_LANG };
   }
-  try {
-    const form = new FormData();
-    form.append("file", new File([audioBlob], "audio.webm", { type: audioBlob.type || "audio/webm" }));
-    form.append("model", "whisper-large-v3");
-    form.append("response_format", "verbose_json");
-    form.append("temperature", "0");
 
-    const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${GROQ_KEY}` },
-      body: form,
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!res.ok) throw new Error(`Groq ${res.status}`);
-    const data = await res.json();
-    const detected = data.language || "hi";
-    return {
-      transcript: (data.text || "").trim(),
-      langInfo: LANG_MAP[detected] || DEFAULT_LANG,
-    };
-  } catch (e) {
-    console.error("Groq transcription failed:", e.message);
-    return { transcript: "", langInfo: DEFAULT_LANG };
+  const form = new FormData();
+  form.append("file", new File([audioBlob], "audio.webm", {
+    type: audioBlob.type || "audio/webm",
+  }));
+
+  const res = await fetch(`${BACKEND}/api/voice/transcribe`, {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(25_000),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || `Transcription failed: HTTP ${res.status}`);
   }
+
+  const data = await res.json();
+  return {
+    transcript: (data.transcript || "").trim(),
+    langInfo: LANG_MAP[data.language] || DEFAULT_LANG,
+  };
 };

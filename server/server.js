@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import multer from "multer";
 import { evaluateAlerts } from "./lib/alertEngine.js";
 import { sendAlertToUser, isAdminReady, getAdminFirestore } from "./lib/fcmSender.js";
 import { fetchMandiPrices, fetchPriceTrend, fetchMultiCropPrices } from "./lib/mandiPrices.js";
@@ -15,8 +16,9 @@ const haversineKm = (lat1, lon1, lat2, lon2) => {
 };
 const OUTBREAK_RADIUS_KM = 50;
 
-const app  = express();
-const PORT = process.env.PORT || 5000;
+const app    = express();
+const PORT   = process.env.PORT || 5000;
+const upload = multer({ storage: multer.memoryStorage() });
 
 // ── CORS ───────────────────────────────────────────────────────────────────────
 const normalizeOrigin = (value) => {
@@ -164,6 +166,125 @@ app.post("/api/ai/chat", rateLimit(20, 60_000), async (req, res) => {
   }
 
   res.status(502).json({ error: "All Gemini models failed. Please try again." });
+});
+
+// ── Voice: STT proxy (Groq Whisper) ───────────────────────────────────────────
+// Hides GROQ_API_KEY from the browser. Tries faster model first, falls back.
+// Accepts: POST /api/voice/transcribe  multipart/form-data  field: "file"
+// Returns: { transcript: "...", language: "hi" }
+
+const WHISPER_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"];
+
+app.post("/api/voice/transcribe", rateLimit(20, 60_000), upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No audio file uploaded" });
+
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    return res.status(502).json({ error: "GROQ_API_KEY not set on server" });
+  }
+
+  const { buffer, mimetype } = req.file;
+
+  for (const model of WHISPER_MODELS) {
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([buffer], { type: mimetype || "audio/webm" }), "audio.webm");
+      form.append("model", model);
+      form.append("response_format", "verbose_json");
+      form.append("temperature", "0");
+
+      const groqRes = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: AbortSignal.timeout(25_000),
+      });
+
+      if (!groqRes.ok) {
+        const errText = await groqRes.text();
+        console.warn(`[whisper] ${model} → ${groqRes.status}: ${errText.slice(0, 120)}`);
+        continue;
+      }
+
+      const data = await groqRes.json();
+      return res.json({ transcript: data.text || "", language: data.language || "hi" });
+    } catch (err) {
+      console.warn(`[whisper] ${model} error:`, err.message);
+    }
+  }
+
+  res.status(502).json({ error: "All Whisper models failed — check Groq quota" });
+});
+
+// ── Voice: TTS proxy (Sarvam Bulbul) ──────────────────────────────────────────
+// Hides SARVAM_API_KEY from the browser. Splits long text into chunks server-side.
+// Accepts: POST /api/voice/speak  { text, languageCode, speaker }
+// Returns: { audios: ["base64...", ...] }
+
+const splitIntoChunks = (text, maxLen = 450) => {
+  if (text.length <= maxLen) return [text];
+  const sentences = text.match(/[^.!?।]+[.!?।]+/g) || [text];
+  const chunks = [];
+  let current = "";
+  for (const s of sentences) {
+    if ((current + s).length > maxLen && current) {
+      chunks.push(current.trim()); current = s;
+    } else current += s;
+  }
+  if (current.trim()) chunks.push(current.trim());
+  return chunks.length ? chunks : [text];
+};
+
+app.post("/api/voice/speak", rateLimit(30, 60_000), async (req, res) => {
+  const { text, languageCode, speaker } = req.body;
+
+  if (!text || !languageCode) {
+    return res.status(400).json({ error: "text and languageCode are required" });
+  }
+
+  const apiKey = process.env.SARVAM_API_KEY;
+  if (!apiKey) {
+    return res.status(502).json({ error: "SARVAM_API_KEY not set on server" });
+  }
+
+  const chunks = splitIntoChunks(text);
+  const allBase64 = [];
+
+  for (const chunk of chunks) {
+    try {
+      const sarvamRes = await fetch("https://api.sarvam.ai/text-to-speech", {
+        method: "POST",
+        headers: {
+          "api-subscription-key": apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: chunk,
+          target_language_code: languageCode,
+          speaker: speaker || "shubh",
+          pace: 0.92,
+          speech_sample_rate: 24000,
+          model: "bulbul:v3",
+        }),
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (!sarvamRes.ok) {
+        const errBody = await sarvamRes.json().catch(() => ({}));
+        const msg = errBody?.message || errBody?.error || `Sarvam HTTP ${sarvamRes.status}`;
+        console.warn("[sarvam]", msg);
+        return res.status(502).json({ error: msg });
+      }
+
+      const data = await sarvamRes.json();
+      if (data.audios?.[0]) allBase64.push(data.audios[0]);
+    } catch (err) {
+      console.warn("[sarvam] chunk error:", err.message);
+      return res.status(502).json({ error: `Sarvam TTS error: ${err.message}` });
+    }
+  }
+
+  res.json({ audios: allBase64 });
 });
 
 // ── User profile update ────────────────────────────────────────────────────────
@@ -405,7 +526,9 @@ app.post("/api/market/multi", rateLimit(10, 60_000), async (req, res) => {
 // ── Start ──────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n🌱 KrishiSense API running on http://localhost:${PORT}`);
-  console.log(`   Gemini key:      ${process.env.GEMINI_API_KEY ? "✅ loaded" : "❌ MISSING — set GEMINI_API_KEY"}`);
+  console.log(`   Gemini key:      ${process.env.GEMINI_API_KEY   ? "✅ loaded" : "❌ MISSING — set GEMINI_API_KEY"}`);
+  console.log(`   Groq key:        ${process.env.GROQ_API_KEY     ? "✅ loaded" : "❌ MISSING — set GROQ_API_KEY (voice STT)"}`);
+  console.log(`   Sarvam key:      ${process.env.SARVAM_API_KEY   ? "✅ loaded" : "❌ MISSING — set SARVAM_API_KEY (voice TTS)"}`);
   console.log(`   Data.gov.in key: ${process.env.DATA_GOV_API_KEY ? "✅ loaded" : "❌ MISSING — set DATA_GOV_API_KEY"}`);
   console.log(`   Frontend:        ${process.env.FRONTEND_URL || "(dev: any origin allowed)"}\n`);
 });
