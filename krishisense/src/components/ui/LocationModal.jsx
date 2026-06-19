@@ -18,7 +18,7 @@ export default function LocationModal({ isOpen, onClose, onSelectLocation, onRes
   const searchTimeoutRef = useRef(null);
 
   // Multilingual translations
-  const t = {
+  const tMap = {
     en: {
       title: "Select Farm Location",
       searchPlaceholder: "Search city, town, or village...",
@@ -33,7 +33,7 @@ export default function LocationModal({ isOpen, onClose, onSelectLocation, onRes
       noResults: "No locations found.",
       searching: "Searching matches...",
       coordinateError: "Please enter valid coordinates (-90 to 90 for Lat, -180 to 180 for Lon).",
-      nameRequired: "Please enter a location name."
+      nameRequired: "Please enter a location name.",
     },
     hi: {
       title: "खेत का स्थान चुनें",
@@ -49,7 +49,7 @@ export default function LocationModal({ isOpen, onClose, onSelectLocation, onRes
       noResults: "कोई स्थान नहीं मिला।",
       searching: "खोज रहे हैं...",
       coordinateError: "कृपया वैध निर्देशांक दर्ज करें (अक्षांश -90 से 90, देशांतर -180 से 180)।",
-      nameRequired: "कृपया स्थान का नाम दर्ज करें।"
+      nameRequired: "कृपया स्थान का नाम दर्ज करें।",
     },
     mr: {
       title: "शेत स्थान निवडा",
@@ -65,9 +65,58 @@ export default function LocationModal({ isOpen, onClose, onSelectLocation, onRes
       noResults: "ठिकाण सापडले नाही.",
       searching: "शोधत आहे...",
       coordinateError: "कृपया वैध अक्षांश-रेखांश प्रविष्ट करा (अक्षांश -90 ते 90, रेखांश -180 ते 180).",
-      nameRequired: "कृपया ठिकाणाचे नाव प्रविष्ट करा।"
-    }
-  }[lang] || { en: {} };
+      nameRequired: "कृपया ठिकाणाचे नाव प्रविष्ट करा।",
+    },
+    pa: {
+      title: "ਖੇਤ ਦਾ ਟਿਕਾਣਾ ਚੁਣੋ",
+      searchPlaceholder: "ਸ਼ਹਿਰ, ਕਸਬਾ ਜਾਂ ਪਿੰਡ ਖੋਜੋ...",
+      manualTitle: "ਜਾਂ ਕੋਆਰਡੀਨੇਟ ਹੱਥੀਂ ਦਾਖਲ ਕਰੋ",
+      latLabel: "ਅਕਸ਼ਾਂਸ਼ (Latitude)",
+      lonLabel: "ਦੇਸ਼ਾਂਤਰ (Longitude)",
+      nameLabel: "ਟਿਕਾਣੇ ਦਾ ਨਾਮ (ਜਿਵੇਂ: ਮੇਰਾ ਖੇਤ)",
+      applyBtn: "ਕੋਆਰਡੀਨੇਟ ਲਾਗੂ ਕਰੋ",
+      useGps: "ਮੇਰੀ ਮੌਜੂਦਾ GPS ਸਥਿਤੀ ਵਰਤੋ",
+      gpsActive: "GPS ਆਟੋ-ਟ੍ਰੈਕਿੰਗ ਸਰਗਰਮ",
+      gpsManual: "ਮੈਨੂਅਲ ਨਿਯੰਤਰਣ ਸਰਗਰਮ",
+      noResults: "ਕੋਈ ਟਿਕਾਣਾ ਨਹੀਂ ਮਿਲਿਆ।",
+      searching: "ਖੋਜ ਰਹੇ ਹਾਂ...",
+      coordinateError: "ਕਿਰਪਾ ਕਰਕੇ ਸਹੀ ਕੋਆਰਡੀਨੇਟ ਦਾਖਲ ਕਰੋ।",
+      nameRequired: "ਕਿਰਪਾ ਕਰਕੇ ਟਿਕਾਣੇ ਦਾ ਨਾਮ ਦਾਖਲ ਕਰੋ।",
+    },
+    ta: {
+      title: "பண்ணை இடத்தை தேர்ந்தெடுங்கள்",
+      searchPlaceholder: "நகரம், நகர்ப்புறம் அல்லது கிராமம் தேடுங்கள்...",
+      manualTitle: "அல்லது கோர்டினேட்களை கைமுறையாக உள்ளிடுங்கள்",
+      latLabel: "அட்சரேகை (Latitude)",
+      lonLabel: "தீர்க்கரேகை (Longitude)",
+      nameLabel: "இடத்தின் பெயர் (எ.கா: என் பண்ணை)",
+      applyBtn: "கோர்டினேட்களை பயன்படுத்து",
+      useGps: "என் தற்போதைய GPS இடத்தை பயன்படுத்து",
+      gpsActive: "GPS தானியங்கி கண்காணிப்பு செயல்பாட்டில்",
+      gpsManual: "கைமுறை கட்டுப்பாடு செயல்பாட்டில்",
+      noResults: "இடங்கள் எதுவும் கிடைக்கவில்லை.",
+      searching: "தேடுகிறோம்...",
+      coordinateError: "சரியான கோர்டினேட்களை உள்ளிடுங்கள்.",
+      nameRequired: "இடத்தின் பெயரை உள்ளிடுங்கள்.",
+    },
+    te: {
+      title: "పొలం స్థానాన్ని ఎంచుకోండి",
+      searchPlaceholder: "నగరం, పట్టణం లేదా గ్రామాన్ని వెతకండి...",
+      manualTitle: "లేదా కోఆర్డినేట్‌లను మాన్యువల్‌గా నమోదు చేయండి",
+      latLabel: "అక్షాంశం (Latitude)",
+      lonLabel: "రేఖాంశం (Longitude)",
+      nameLabel: "స్థాన పేరు (ఉదా: నా పొలం)",
+      applyBtn: "కోఆర్డినేట్‌లు వర్తింపజేయి",
+      useGps: "నా ప్రస్తుత GPS స్థానాన్ని ఉపయోగించు",
+      gpsActive: "GPS ఆటో-ట్రాకింగ్ సక్రియంగా ఉంది",
+      gpsManual: "మాన్యువల్ నియంత్రణ సక్రియంగా ఉంది",
+      noResults: "స్థానాలు కనుగొనబడలేదు.",
+      searching: "వెతుకుతున్నాము...",
+      coordinateError: "దయచేసి సరైన కోఆర్డినేట్‌లు నమోదు చేయండి.",
+      nameRequired: "దయచేసి స్థాన పేరు నమోదు చేయండి.",
+    },
+  };
+  const t = tMap[lang] || tMap.en;
 
   // Trigger Nominatim Search on Query Input
   useEffect(() => {
@@ -87,7 +136,7 @@ export default function LocationModal({ isOpen, onClose, onSelectLocation, onRes
         const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchQuery)}&format=json&limit=5&addressdetails=1&countrycodes=in`;
         const res = await fetch(url, {
           headers: {
-            "Accept-Language": lang === "hi" ? "hi" : lang === "mr" ? "mr" : "en"
+            "Accept-Language": ["hi","mr","pa","ta","te"].includes(lang) ? lang : "en"
           }
         });
         if (!res.ok) throw new Error("Search geocoding failed");

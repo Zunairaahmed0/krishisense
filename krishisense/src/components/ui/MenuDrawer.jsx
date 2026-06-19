@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Volume2, VolumeX, LogOut, Pencil, Check, XCircle, Home, Satellite, Leaf, TrendingUp, Landmark, Droplets } from "lucide-react";
 import { C } from "../../constants/theme";
+import { LANGUAGES } from "../../constants/i18n";
 
 const AVATARS = ["👨‍🌾", "👩‍🌾", "🌾", "🌱", "🧑‍🌾", "🌻"];
 
@@ -131,12 +132,13 @@ export default function MenuDrawer({ user, tab, setTab, lang, setLang, voiceOn, 
           {/* Language */}
           <div style={{ padding:"12px",borderRadius:12,border:`1px solid ${C.brd}`,marginBottom:10 }}>
             <div style={{ fontSize:11,fontWeight:700,color:C.mut,marginBottom:8 }}>Language</div>
-            <div style={{ display:"flex",gap:6 }}>
-              {[["en","EN"],["hi","हि"],["mr","म"]].map(([code,label]) => (
+            <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+              {LANGUAGES.map(({ code, label }) => (
                 <button key={code} onClick={() => setLang(code)}
-                  style={{ flex:1,padding:"7px 0",borderRadius:9,border:`1px solid ${lang===code?C.p3:C.brd}`,
+                  style={{ flex:"0 0 calc(33% - 4px)",padding:"7px 0",borderRadius:9,
+                    border:`1px solid ${lang===code?C.p3:C.brd}`,
                     background:lang===code?C.tint:C.surface,color:lang===code?C.p2:C.mut,
-                    fontSize:12,fontWeight:700,cursor:"pointer" }}>
+                    fontSize:11,fontWeight:700,cursor:"pointer" }}>
                   {label}
                 </button>
               ))}

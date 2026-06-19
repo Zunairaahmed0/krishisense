@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Globe, Leaf, Smartphone, KeyRound, MessageSquare, ArrowLeft, RefreshCw, AlertTriangle, Check } from "lucide-react";
 import { C } from "../../constants/theme";
+import { LANGUAGES, t } from "../../constants/i18n";
 import { api } from "../../lib/api";
 import { speak } from "../../lib/speech";
 import Spinner from "../ui/Spinner";
@@ -34,14 +35,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
   useEffect(() => {
     if (!voiceOn) return;
     const timer = setTimeout(() => {
-      speak(
-        lang === "hi"
-          ? "कृषिसेंस में आपका स्वागत है।"
-          : lang === "mr"
-          ? "कृषिसेन्स मध्ये आपले स्वागत आहे."
-          : "Welcome to KrishiSense.",
-        lang
-      );
+      speak(t("welcomeMsg", lang), lang);
     }, 600);
     return () => clearTimeout(timer);
   }, [lang]);
@@ -216,9 +210,9 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
       <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10, display: "flex", gap: 6, alignItems: "center" }}>
         <Globe size={13} color={C.mut} />
         <select value={lang} onChange={e => setLang(e.target.value)} style={{ padding: "4px 8px", borderRadius: 8, border: `1px solid ${C.brd}`, background: C.surface, color: C.p2, fontSize: 11, fontWeight: 800, cursor: "pointer", outline: "none" }}>
-          <option value="en">English</option>
-          <option value="hi">हिंदी</option>
-          <option value="mr">मराठी</option>
+          {LANGUAGES.map(l => (
+            <option key={l.code} value={l.code}>{l.name}</option>
+          ))}
         </select>
       </div>
 
@@ -377,7 +371,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                   </div>
 
                   <button type="submit" disabled={loading} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${C.primary}, ${C.p3})`, color: "white", fontSize: 14, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: `0 8px 24px rgba(22,134,75,0.18)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}>
-                    {loading ? <Spinner size={18} color="white" /> : <><span>{lang === "hi" ? "कोड सत्यापित करें" : "Verify Code"}</span><Check size={16} color="white" /></>}
+                    {loading ? <Spinner size={18} color="white" /> : <><span>{t("verifyCode", lang)}</span><Check size={16} color="white" /></>}
                   </button>
                 </form>
 
@@ -399,7 +393,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
             ) : (
               <div>
                 <h2 style={{ fontSize: 18, fontWeight: 800, color: C.primary, marginTop: 4, marginBottom: 8 }}>
-                  {lang === "hi" ? "मोबाइल नंबर दर्ज करें" : lang === "mr" ? "मोबाइल नंबर प्रविष्ट करा" : "Enter Your Phone Number"}
+                  {t("enterPhone", lang)}
                 </h2>
                 <p style={{ fontSize: 12, color: C.txt2, marginBottom: 24, lineHeight: 1.5 }}>
                   {lang === "hi" ? "हम आपके नंबर पर एक OTP भेजेंगे।" : "We'll send a one-time verification code via SMS."}
@@ -422,11 +416,11 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                   </div>
 
                   <button onClick={handleRequestOTP} disabled={loading || identifier.length < 10} style={{ padding: 14, borderRadius: 12, border: "none", background: identifier.length < 10 ? "#ccc" : `linear-gradient(135deg, ${C.sky}, ${C.blue})`, color: "white", fontSize: 14, fontWeight: 800, cursor: loading || identifier.length < 10 ? "not-allowed" : "pointer", boxShadow: identifier.length >= 10 ? `0 8px 24px rgba(14,165,233,0.18)` : "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all 0.2s ease" }}>
-                    {loading ? <Spinner size={18} color="white" /> : <><span>{lang === "hi" ? "OTP भेजें" : lang === "mr" ? "OTP पाठवा" : "Send OTP"}</span><MessageSquare size={16} color="white" /></>}
+                    {loading ? <Spinner size={18} color="white" /> : <><span>{t("sendOtp", lang)}</span><MessageSquare size={16} color="white" /></>}
                   </button>
 
                   <button onClick={() => { setAuthMethod(null); setIdentifier(""); setError(""); }} style={{ background: "none", border: "none", color: C.mut, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                    ← {lang === "hi" ? "वापस जाएं" : "Back to options"}
+                    ← {t("backToOptions", lang)}
                   </button>
                 </div>
               </div>
@@ -490,7 +484,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
             </form>
 
             <button onClick={() => { setAuthMethod(null); setIdentifier(""); setPassword(""); setFullName(""); setError(""); }} style={{ background: "none", border: "none", color: C.mut, fontSize: 12, fontWeight: 700, cursor: "pointer", marginTop: 16 }}>
-              ← {lang === "hi" ? "वापस जाएं" : "Back to options"}
+              ← {t("backToOptions", lang)}
             </button>
           </div>
         )}

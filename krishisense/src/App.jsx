@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { DemoCtx } from "./lib/demoMode";
 import { Bell, Loader2, Phone, Volume2, VolumeX, LogOut } from "lucide-react";
 import { C } from "./constants/theme";
+import { LANGUAGES } from "./constants/i18n";
 import Header from "./components/layout/Header";
 import BottomNav from "./components/layout/BottomNav";
 import AdvisorPanel from "./components/advisor/AdvisorPanel";
@@ -514,11 +515,11 @@ export default function App() {
                 aria-label="Language"
                 value={lang}
                 onChange={e => setLang(e.target.value)}
-                style={{ width: 44, height: 30, borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.p2, fontSize: 10, fontWeight: 800, outline: "none", cursor: "pointer" }}
+                style={{ height: 30, borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.p2, fontSize: 10, fontWeight: 800, outline: "none", cursor: "pointer", padding: "0 4px" }}
               >
-                <option value="en">EN</option>
-                <option value="hi">HI</option>
-                <option value="mr">MR</option>
+                {LANGUAGES.map(l => (
+                  <option key={l.code} value={l.code}>{l.label}</option>
+                ))}
               </select>
               <button
                 aria-label="Notifications"
