@@ -177,7 +177,7 @@ const fetchRaw = async ({ commodity, state, district, market, limit }) => {
   if (district) params.set("filters[district]", district);
   if (market)   params.set("filters[market]", market);
 
-  const res = await fetch(`${BASE}?${params}`, { signal: AbortSignal.timeout(12000) });
+  const res = await fetch(`${BASE}?${params}`, { signal: AbortSignal.timeout(18000) });
   if (!res.ok) throw new Error(`data.gov.in returned ${res.status}`);
   const json = await res.json();
   return json.records || [];

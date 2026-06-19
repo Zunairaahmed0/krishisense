@@ -496,6 +496,7 @@ app.get("/api/market/prices", rateLimit(30, 60_000), async (req, res) => {
   const { commodity = "Onion", state = "Maharashtra", district, market, lat, lon } = req.query;
   try {
     const data = await fetchMandiPrices({ commodity, state, district, market, lat, lon });
+    res.set("X-Cache", data.fromCache ? "HIT" : "MISS");
     res.json(data);
   } catch (e) {
     console.error("[mandi prices]", e.message);
@@ -521,6 +522,68 @@ app.post("/api/market/multi", rateLimit(10, 60_000), async (req, res) => {
   } catch (e) {
     res.status(502).json({ error: e.message });
   }
+});
+
+// ── Market: Crop Comparison ────────────────────────────────────────────────────
+const COMPARE_CROPS = ["Onion","Tomato","Wheat","Cotton","Rice","Soybean","Potato","Mustard"];
+const compareCache  = new Map();
+const COMPARE_TTL   = 30 * 60 * 1000;
+
+app.get("/api/market/compare", rateLimit(10, 60_000), async (req, res) => {
+  const { state = "Maharashtra" } = req.query;
+  const cacheKey = `compare_${state}`;
+  const cached = compareCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < COMPARE_TTL) return res.json(cached.data);
+
+  const [priceResults, trendResults] = await Promise.all([
+    Promise.allSettled(COMPARE_CROPS.map(crop => fetchMandiPrices({ commodity: crop, state }))),
+    Promise.allSettled(COMPARE_CROPS.map(crop => fetchPriceTrend(crop, state))),
+  ]);
+
+  const compare = [];
+  let totalMandis = 0;
+
+  for (let i = 0; i < COMPARE_CROPS.length; i++) {
+    const pr = priceResults[i];
+    if (pr.status !== "fulfilled") continue;
+
+    const { summary } = pr.value;
+    const avgPrice  = summary.avgPrice;
+    const trendData = trendResults[i].status === "fulfilled" ? trendResults[i].value : [];
+
+    let changePct = 0;
+    if (trendData.length > 1) {
+      const oldest = trendData[0].price;
+      if (oldest > 0) changePct = ((avgPrice - oldest) / oldest) * 100;
+    }
+
+    const trendDir = changePct > 1 ? "up" : changePct < -1 ? "down" : "flat";
+    totalMandis += summary.totalMarkets || 0;
+
+    compare.push({
+      crop:        COMPARE_CROPS[i],
+      avgPrice,
+      trend:       trendDir,
+      changePct:   Math.round(changePct * 10) / 10,
+      bestMarket:  summary.bestMarket,
+    });
+  }
+
+  compare.sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+
+  const gained   = compare.filter(c => c.changePct > 0);
+  const declined = compare.filter(c => c.changePct < 0);
+
+  const result = {
+    compare,
+    mostGained:  gained.length   ? gained[0].crop            : (compare[0]?.crop || ""),
+    mostDeclined: declined.length ? declined[0].crop           : (compare[compare.length - 1]?.crop || ""),
+    totalMandis,
+    lastUpdated: new Date().toLocaleTimeString("en-IN"),
+  };
+
+  compareCache.set(cacheKey, { data: result, ts: Date.now() });
+  res.json(result);
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────

@@ -26,6 +26,9 @@ export default function SellTab({ loc, voiceOn, lang, onionsImg, user }) {
   const [buyerModal, setBuyerModal] = useState(null);
   const [mandiModal, setMandiModal] = useState(false);
   const [qtyKg, setQtyKg] = useState("");
+  const [compareData, setCompareData] = useState(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   // Build location-aware buyer list from actual city/state
   const buildLocalBuyers = (city, state, pricePerKg) => {
@@ -336,9 +339,30 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
     }
   };
 
+  const fetchCompareData = async () => {
+    setCompareLoading(true);
+    try {
+      const BACKEND = (import.meta.env.VITE_BACKEND_URL || "").replace(/\/+$/, "");
+      const res = await fetch(
+        `${BACKEND}/api/market/compare?state=${encodeURIComponent(loc?.state || "Maharashtra")}`,
+        { signal: AbortSignal.timeout(30_000) }
+      );
+      if (!res.ok) throw new Error("Compare API failed");
+      setCompareData(await res.json());
+    } catch {
+      // silently fail — not critical
+    } finally {
+      setCompareLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchLiveMarketData(crop);
   }, [crop, loc?.state, loc?.name]);
+
+  useEffect(() => {
+    if (showCompare && !compareData) fetchCompareData();
+  }, [showCompare]);
 
   const currentData = marketData || getFallbackData(crop);
   const latest = currentData.latestPrice;
@@ -349,6 +373,36 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
 
   return (
     <div style={{ paddingBottom: 16 }}>
+
+      {/* ── Live Market Stats Banner ───────────────────────── */}
+      {compareData && (
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr 1fr",
+          gap:0, borderBottom:`1px solid ${C.brd}`, background:C.surface }}>
+          {[
+            { label:"Most Gained",   value:compareData.mostGained,
+              sub:`up ${compareData.compare.find(c=>c.crop===compareData.mostGained)?.changePct?.toFixed(1)||"?"}% this week`,
+              icon:"↑", color:C.p3 },
+            { label:"Most Declined", value:compareData.mostDeclined,
+              sub:`down ${Math.abs(compareData.compare.find(c=>c.crop===compareData.mostDeclined)?.changePct||0).toFixed(1)}% this week`,
+              icon:"↓", color:C.red },
+            { label:"Total Mandis",  value:compareData.totalMandis,
+              sub:"Tracked live", icon:"⇄", color:C.blue },
+            { label:"Last Updated",  value:compareData.lastUpdated,
+              sub:"Auto-refresh", icon:"📡", color:C.amber },
+          ].map(({ label, value, sub, icon, color }) => (
+            <div key={label} style={{ padding:"12px 10px", borderRight:`1px solid ${C.brd}` }}>
+              <div style={{ width:28, height:28, borderRadius:8,
+                background:color+"18", display:"flex", alignItems:"center",
+                justifyContent:"center", marginBottom:6, fontSize:14, fontWeight:900, color }}>
+                {icon}
+              </div>
+              <div style={{ fontSize:11, color:C.mut, marginBottom:2 }}>{label}</div>
+              <div style={{ fontSize:13, fontWeight:800, color:C.txt, lineHeight:1.2 }}>{value}</div>
+              <div style={{ fontSize:9, color, fontWeight:700, marginTop:2 }}>{sub}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Hero Header ────────────────────────────────────── */}
       <div style={{ padding: "14px 18px 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -443,6 +497,73 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
         ))}
       </div>
 
+      {/* ── Crop Price Comparison ──────────────────────────── */}
+      <div style={{ margin:"0 14px 14px" }}>
+        <button onClick={() => setShowCompare(v => !v)} style={{
+          width:"100%", padding:"11px 16px", borderRadius:12,
+          border:`1px solid ${C.brd}`, background:C.surface,
+          display:"flex", justifyContent:"space-between", alignItems:"center",
+          cursor:"pointer", fontSize:13, fontWeight:700, color:C.txt
+        }}>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            ⚖️ Crop Price Comparison
+            {compareData && <span style={{ fontSize:10, color:C.mut, fontWeight:500 }}>
+              · {loc?.state || "Maharashtra"}
+            </span>}
+          </div>
+          <span style={{ fontSize:12, color:C.mut }}>{showCompare ? "▲" : "▼"}</span>
+        </button>
+
+        {showCompare && (
+          <Card style={{ marginTop:8, padding:0, overflow:"hidden" }}>
+            <div style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr",
+              padding:"10px 14px", borderBottom:`1px solid ${C.brd}`,
+              background:"#F8FAF8" }}>
+              {["CROP","MANDI","MODAL PRICE","CHANGE"].map(h => (
+                <div key={h} style={{ fontSize:9, fontWeight:800, color:C.mut }}>{h}</div>
+              ))}
+            </div>
+
+            {compareLoading ? (
+              <div style={{ display:"flex", justifyContent:"center", alignItems:"center", padding:"30px 0", gap:8 }}>
+                <Spinner size={24} />
+                <span style={{ fontSize:11, color:C.mut }}>Fetching all crops...</span>
+              </div>
+            ) : compareData?.compare ? (
+              compareData.compare.map((item, i) => {
+                const up = item.changePct > 0;
+                const emoji = { Onion:"🧅", Wheat:"🌾", Rice:"🌾", Tomato:"🍅",
+                  Potato:"🥔", Cotton:"☁️", Soybean:"🌱", Mustard:"🌼" }[item.crop] || "🌾";
+                return (
+                  <div key={item.crop} onClick={() => setCrop(item.crop)}
+                    style={{ display:"grid", gridTemplateColumns:"2fr 1fr 1fr 1fr",
+                      padding:"12px 14px",
+                      borderBottom: i < compareData.compare.length - 1 ? `1px solid ${C.brd}` : "none",
+                      background: crop === item.crop ? C.tint : "white",
+                      cursor:"pointer" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                      <span style={{ fontSize:16 }}>{emoji}</span>
+                      <span style={{ fontSize:12, fontWeight:700, color:C.txt }}>{item.crop}</span>
+                    </div>
+                    <div style={{ fontSize:10, color:C.mut }}>{item.bestMarket?.split(" ")[0] || "Multiple"}</div>
+                    <div style={{ fontSize:12, fontWeight:800, color:C.txt }}>
+                      ₹{item.avgPrice}<span style={{ fontSize:9, color:C.mut }}>/kg</span>
+                    </div>
+                    <div style={{ fontSize:11, fontWeight:800, color: up ? C.p3 : C.red }}>
+                      {up ? "↑" : "↓"} {Math.abs(item.changePct || 0).toFixed(1)}%
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ padding:"20px", textAlign:"center", fontSize:11, color:C.mut }}>
+                No comparison data. Check backend connection.
+              </div>
+            )}
+          </Card>
+        )}
+      </div>
+
       {/* ── Your Quantity & Profit Calculator ─────────────── */}
       <div style={{ margin: "0 14px 16px", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.brd}`, background: C.surface, display: "flex", alignItems: "center", gap: 14 }}>
         <div style={{ fontSize: 28, flexShrink: 0 }}>{cropEmoji}</div>
@@ -528,9 +649,17 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
                 {m.change >= 0 ? "↑" : "↓"} {m.change >= 0 ? "+" : ""}{m.change}%
               </div>
               <Sparkline data={currentData.chartPrices.slice(-8).map(d => d.price || latest)} color={C.p3} width={80} height={24} />
-              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 9, color: C.mut }}>
-                <LiveDot color={C.p3} /> Updated {m.updated}
-              </div>
+              {(() => {
+                const isLive = m.updated && !m.updated.includes("AI") && !m.updated.includes("estimate");
+                return (
+                  <div style={{ display:"flex", alignItems:"center", gap:4, marginTop:4, fontSize:9, color:C.mut }}>
+                    <div style={{ width:6, height:6, borderRadius:"50%",
+                      background: isLive ? C.p3 : C.amber,
+                      animation: isLive ? "pulse 1.5s infinite" : "none" }} />
+                    {isLive ? "LIVE" : "AI estimate"} · {m.updated}
+                  </div>
+                );
+              })()}
             </Card>
           ))
         )}
