@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X } from "lucide-react";
+import { X, Microscope, Camera, AlertTriangle, CheckCircle2, Volume2, Save, RefreshCw, ScrollText, Lightbulb, TrendingDown, Leaf } from "lucide-react";
 import { C } from "../constants/theme";
 import { askAI } from "../lib/ai";
 import { speak } from "../lib/speech";
@@ -254,7 +254,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <div style={{ width: 32, height: 32, borderRadius: 8, background: `${C.p3}20`, border: `1px solid ${C.brd}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <span style={{ fontSize: 16 }}>🔬</span>
+                    <Microscope size={16} color={C.p3} />
                   </div>
                   <span style={{ fontSize: 14, fontWeight: 700, color: C.txt }}>Scan Your Crop</span>
                 </div>
@@ -262,7 +262,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                 <div style={{ display: "flex", gap: 10 }}>
                   <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={e => e.target.files[0] && loadImg(e.target.files[0])} />
                   <input ref={galleryRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => e.target.files[0] && loadImg(e.target.files[0])} />
-                  <button onClick={() => fileRef.current?.click()} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: C.primary, color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>📷 Take Photo</button>
+                  <button onClick={() => fileRef.current?.click()} style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: C.primary, color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer", display:"flex", alignItems:"center", gap:5 }}><Camera size={14} /> Take Photo</button>
                   <button onClick={() => galleryRef.current?.click()} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>🖼 Gallery</button>
                 </div>
                 <div style={{ fontSize: 10, color: C.mut, marginTop: 8 }}>🔒 Your images are secure and private</div>
@@ -280,7 +280,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
             </div>
             {imgPrev && (
               <button onClick={analyze} style={{ width: "100%", marginTop: 14, padding: 12, borderRadius: 12, border: "none", background: `linear-gradient(135deg,${C.primary},${C.p3})`, color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                🔬 Analyze with AI
+                <Microscope size={15} style={{ marginRight:6, verticalAlign:"middle" }} /> Analyze with AI
               </button>
             )}
           </div>
@@ -300,7 +300,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
       {/* ── Analyzing ──────────────────────────────────────── */}
       {phase === "analyzing" && (
         <Card style={{ margin: "0 14px 16px", textAlign: "center", padding: 40 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>🔬</div>
+          <Microscope size={48} color={C.p3} style={{ marginBottom: 16 }} />
           <Spinner size={44} />
           <div style={{ fontSize: 16, fontWeight: 700, color: C.txt, marginTop: 16, marginBottom: 10 }}>Analyzing Leaf Tissue</div>
           <div style={{ fontSize: 13, color: C.p2, fontWeight: 600, marginTop: 12 }}>{analysisStep}</div>
@@ -310,7 +310,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
       {/* ── Error ──────────────────────────────────────────── */}
       {phase === "error" && (
         <Card style={{ margin: "0 14px 16px", textAlign: "center", padding: 32 }}>
-          <div style={{ fontSize: 44, marginBottom: 12 }}>⚠️</div>
+          <AlertTriangle size={44} color={C.amber} style={{ marginBottom: 12 }} />
           <div style={{ fontSize: 16, fontWeight: 700, color: C.txt, marginBottom: 8 }}>Analysis Failed</div>
           <div style={{ fontSize: 13, color: C.p2, marginBottom: 20 }}>Could not analyze the image. Please try with a clearer, well-lit photo of the affected leaf.</div>
           <button onClick={reset} style={{ background: C.p1, color: "#fff", border: "none", borderRadius: 10, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Try Again</button>
@@ -336,7 +336,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
               </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ width: 60, height: 60, borderRadius: 12, background: res.status === "diseased" ? "#FFEBEE" : C.tint, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span style={{ fontSize: 32 }}>{res.status === "diseased" ? "⚠️" : "✅"}</span>
+                  {res.status === "diseased" ? <AlertTriangle size={32} color={C.red} /> : <CheckCircle2 size={32} color={C.p2} />}
                 </div>
                 <div style={{ fontSize: 9, color: C.mut, marginTop: 4 }}>{res.status === "diseased" ? "High Risk" : "Healthy"}</div>
               </div>
@@ -365,7 +365,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
             </div>
             {res.hf_model_used && (
               <div style={{ marginTop: 8, padding: "6px 10px", borderRadius: 8, background: "#E8F5E9", border: "1px solid #C8E6C9", fontSize: 10 }}>
-                ✅ Verified by PlantVillage ML model ({res.hf_confidence}%) + Gemini Vision ({res.confidence}%)
+                <CheckCircle2 size={11} color={C.p2} style={{ marginRight:4, verticalAlign:"middle" }} /> Verified by PlantVillage ML model ({res.hf_confidence}%) + Gemini Vision ({res.confidence}%)
                 <div style={{ fontSize: 9, color: "#666", marginTop: 2 }}>{res.hf_source}</div>
               </div>
             )}
@@ -385,7 +385,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
           {res.status === "diseased" && (
             <Card style={{ margin: "0 14px 12px", background: "#FFF8E8", border: "1px solid #FFE0B2" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-                <span style={{ fontSize: 16 }}>🌿</span>
+                <Leaf size={16} color={C.amber} />
                 <div style={{ fontSize: 14, fontWeight: 700, color: C.amber }}>Recommended Action</div>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -411,7 +411,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
           {kbEntry && res.status === "diseased" && (
             <Card style={{ margin: "0 14px 12px", background: "#E3F2FD", border: "1px solid #90CAF9" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                <span style={{ fontSize: 15 }}>🔬</span>
+                <Microscope size={15} color="#1565C0" />
                 <div style={{ fontSize: 13, fontWeight: 700, color: "#1565C0" }}>Verified ICAR Treatment Protocol</div>
                 {weatherAlert && <Badge text="⚡ High Weather Risk" color={C.red} />}
               </div>
@@ -428,7 +428,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
               )}
               {kbEntry.estimatedYieldLoss && (
                 <div style={{ marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: C.txt }}>📉 Yield Loss if Untreated:</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: C.txt, display:"flex", alignItems:"center", gap:4 }}><TrendingDown size={11} color={C.red} /> Yield Loss if Untreated:</div>
                   <div style={{ fontSize: 11, fontWeight: 800, color: C.red }}>{kbEntry.estimatedYieldLoss}</div>
                 </div>
               )}
@@ -485,9 +485,9 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                     : `High moisture and warm conditions are ideal for ${res.disease}. Immediate treatment can save your crop from potential yield loss.`;
                   speak(tip, lang);
                 }}
-                style={{ flexShrink: 0, padding: "8px 12px", borderRadius: 10, border: "none", background: C.primary, color: "white", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                style={{ flexShrink: 0, padding: "8px 12px", borderRadius: 10, border: "none", background: C.primary, color: "white", fontSize: 10, fontWeight: 700, cursor: "pointer", display:"flex", alignItems:"center", gap:4 }}
               >
-                🔊 Listen
+                <Volume2 size={12} /> Listen
               </button>
             </div>
           )}
@@ -527,7 +527,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                 transition: "all 0.2s ease"
               }}
             >
-              {saving ? "⏳ Saving..." : isSaved ? "✓ Saved to History" : "💾 Save Report"}
+              {saving ? "Saving..." : isSaved ? "✓ Saved to History" : <><Save size={12} style={{ marginRight:4, verticalAlign:"middle" }} />Save Report</>}
             </button>
             <button onClick={handleShareReport} style={{ flex: 1.5, padding: 12, borderRadius: 12, border: "none", background: C.primary, color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
               Share Report →
@@ -535,7 +535,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
           </div>
 
           <button onClick={reset} style={{ width: "calc(100% - 28px)", margin: "8px 14px 0", padding: 11, borderRadius: 12, border: `1px solid ${C.brd}`, background: C.surface, color: C.mut, fontSize: 12, cursor: "pointer" }}>
-            🔄 Analyze Another Leaf
+            <RefreshCw size={13} style={{ marginRight:5, verticalAlign:"middle" }} /> Analyze Another Leaf
           </button>
         </>
       )}
@@ -543,7 +543,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
       {/* ── Disease History Section ── */}
       <div id="disease-history-section" style={{ borderTop: `1px solid ${C.brd}`, marginTop: 24, paddingTop: 20, paddingLeft: 18, paddingRight: 18 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.txt, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>📜</span> Saved Pathology History
+          <ScrollText size={16} color={C.txt} /> Saved Pathology History
         </div>
 
         {loadingScans ? (
@@ -588,7 +588,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontSize: 22 }}>{status === "healthy" ? "✅" : "⚠️"}</div>
+                    <div style={{ display:"flex", alignItems:"center", justifyContent:"center" }}>{status === "healthy" ? <CheckCircle2 size={22} color={C.p2} /> : <AlertTriangle size={22} color={C.amber} />}</div>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 800, color: status === "healthy" ? C.primary : C.red }}>
                         {status === "healthy" ? "Healthy Crop" : disease}
@@ -715,8 +715,8 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                       {!isHealthy && d?.scientific && <div style={{ fontSize: 11, color: C.mut, fontStyle: "italic" }}>({d.scientific})</div>}
                       <div style={{ fontSize: 11, color: C.mut, marginTop: 4 }}>Crop Type: <strong>{d?.crop}</strong></div>
                     </div>
-                    <div style={{ width: 48, height: 48, borderRadius: 12, background: isHealthy ? C.tint : "#FFEBEE", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24 }}>
-                      {isHealthy ? "✅" : "⚠️"}
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: isHealthy ? C.tint : "#FFEBEE", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {isHealthy ? <CheckCircle2 size={24} color={C.p2} /> : <AlertTriangle size={24} color={C.red} />}
                     </div>
                   </div>
                   
@@ -768,7 +768,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                 {/* Prevention Tip */}
                 {d?.prevention && (
                   <Card style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 4 }}>💡 Prevention Guideline</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 4, display:"flex", alignItems:"center", gap:5 }}><Lightbulb size={12} color={C.amber} /> Prevention Guideline</div>
                     <div style={{ fontSize: 11, color: C.txt2, lineHeight: 1.4 }}>{d.prevention}</div>
                   </Card>
                 )}
@@ -799,7 +799,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
                       gap: 6
                     }}
                   >
-                    🔊 Listen
+                    <Volume2 size={15} /> Listen
                   </button>
                   <button
                     onClick={() => handleDeleteScan(selectedScan.id)}

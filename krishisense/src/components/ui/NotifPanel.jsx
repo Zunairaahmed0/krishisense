@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, RefreshCw, Bell } from "lucide-react";
+import { X, RefreshCw, Bell, FlaskConical, AlertOctagon, TrendingUp } from "lucide-react";
 import { C } from "../../constants/theme";
 import Spinner from "./Spinner";
 
@@ -78,15 +78,15 @@ export default function NotifPanel({ notifications, loading, onClose, onRefresh,
           </div>
           <button onClick={() => triggerDemo("early_blight")} disabled={sending === "early_blight"}
             style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${C.amber}`, background:"#FEF3C7", color:"#B45309", fontSize:10, fontWeight:700, cursor:"pointer", opacity: sending === "early_blight" ? 0.6 : 1 }}>
-            {sending === "early_blight" ? "Sending…" : "🧪 Disease Alert"}
+            {sending === "early_blight" ? "Sending…" : <><FlaskConical size={11} style={{ marginRight:4, verticalAlign:"middle" }} />Disease Alert</>}
           </button>
           <button onClick={() => triggerDemo("outbreak")} disabled={sending === "outbreak"}
             style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${C.red}`, background:"#FEE2E2", color:"#B91C1C", fontSize:10, fontWeight:700, cursor:"pointer", opacity: sending === "outbreak" ? 0.6 : 1 }}>
-            {sending === "outbreak" ? "Sending…" : "🚨 Outbreak"}
+            {sending === "outbreak" ? "Sending…" : <><AlertOctagon size={11} style={{ marginRight:4, verticalAlign:"middle" }} />Outbreak</>}
           </button>
           <button onClick={() => triggerDemo("market")} disabled={sending === "market"}
             style={{ padding:"5px 10px", borderRadius:8, border:`1px solid ${C.p2}`, background:"#E8F5E9", color:C.p2, fontSize:10, fontWeight:700, cursor:"pointer", opacity: sending === "market" ? 0.6 : 1 }}>
-            {sending === "market" ? "Sending…" : "📈 Market"}
+            {sending === "market" ? "Sending…" : <><TrendingUp size={11} style={{ marginRight:4, verticalAlign:"middle" }} />Market</>}
           </button>
         </div>
 

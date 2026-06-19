@@ -1,4 +1,4 @@
-import { Bell, Menu, ChevronLeft } from "lucide-react";
+import { Bell, Menu, ChevronLeft, Leaf } from "lucide-react";
 import { C } from "../../constants/theme";
 
 export default function Header({ title, subtitle, iconSrc, showBack, onBack, logoSrc, notifications = 0, rightSlot, onMenuClick, onBellClick, onLogoTap }) {
@@ -64,7 +64,7 @@ export default function Header({ title, subtitle, iconSrc, showBack, onBack, log
         ) : (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg,${C.p2},${C.p4})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 16 }}>🌿</span>
+              <Leaf size={16} color="white" />
             </div>
             <div>
               <div style={{ fontSize: 15, fontWeight: 800, color: C.primary, letterSpacing: -.3 }}>KrishiSense</div>

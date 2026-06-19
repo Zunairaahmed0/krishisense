@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useDemoMode } from "../lib/demoMode";
 import { DEMO_MARKET } from "../lib/demoData";
-import { ChevronRight, CheckCircle } from "lucide-react";
+import { ChevronRight, CheckCircle, Bot, Volume2, MapPin, Trophy, Phone, MessageSquare, RefreshCw, Store, Ship, UtensilsCrossed, Building2, Package, AlertTriangle, TrendingUp } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { C } from "../constants/theme";
 import { PRICES, BUYERS } from "../constants/data";
@@ -375,16 +375,16 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
               opacity: loading ? 0.6 : 1,
             }}
           >
-            {loading ? "🔄 Updating..." : "🔄 Refresh"}
+            {loading ? <><RefreshCw size={12} style={{ marginRight:4 }} />Updating...</> : <><RefreshCw size={12} style={{ marginRight:4 }} />Refresh</>}
           </button>
-          <div style={{ fontSize: 32 }}>📈</div>
+          <div style={{ width:44, height:44, borderRadius:12, background:C.tint, display:"flex", alignItems:"center", justifyContent:"center" }}><TrendingUp size={24} color={C.p2} /></div>
         </div>
       </div>
 
       {/* ── Error Banner ───────────────────────────────────── */}
       {error && (
         <div style={{ margin: "0 14px 12px", padding: "8px 12px", borderRadius: 10, background: "#FFF3E0", border: "1px solid #FFE0B2", color: "#E65100", fontSize: 10, display: "flex", gap: 6, alignItems: "center" }}>
-          <span>⚠️</span> <span>{error}</span>
+          <AlertTriangle size={13} color="#E65100" /> <span>{error}</span>
         </div>
       )}
 
@@ -399,7 +399,7 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <div style={{ flex: 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: C.surface, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, boxShadow: C.shadow }}>🤖</div>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: C.surface, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: C.shadow }}><Bot size={20} color={C.p2} /></div>
                 <div style={{ fontSize: 12, color: C.p2, fontWeight: 700 }}>✦ AI Recommendation</div>
               </div>
               
@@ -600,7 +600,7 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
       <div id="sell-buyers-section" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 18px", marginBottom: 10 }}>
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: C.txt }}>Nearby Buyers</div>
-          {loc?.name && <div style={{ fontSize: 10, color: C.mut, marginTop: 1 }}>📍 Near {loc.name}, {loc.state}</div>}
+          {loc?.name && <div style={{ fontSize: 10, color: C.mut, marginTop: 1, display:"flex", alignItems:"center", gap:3 }}><MapPin size={10} color={C.mut} /> Near {loc.name}, {loc.state}</div>}
         </div>
         <button onClick={() => setBuyerModal("all")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.p3, fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>View All <ChevronRight size={14}/></button>
       </div>
@@ -613,8 +613,8 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
         ) : (
           currentData.buyers.map((b, i) => (
             <Card key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: 14 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: `${b.color || '#4CAF50'}18`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-                {b.type === "Retailer" ? "🏪" : b.type === "Exporter" ? "🚢" : b.type === "Restaurant" ? "🍽" : "🏢"}
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: `${b.color || '#4CAF50'}18`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                {b.type === "Retailer" ? <Store size={20} color={b.color||C.p2} /> : b.type === "Exporter" ? <Ship size={20} color={b.color||C.p2} /> : b.type === "Restaurant" ? <UtensilsCrossed size={20} color={b.color||C.p2} /> : <Building2 size={20} color={b.color||C.p2} />}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
@@ -623,7 +623,7 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
                   <span style={{ fontSize: 9, color: C.p3 }}>Verified</span>
                 </div>
                 <div style={{ fontSize: 11, color: C.mut }}>Needs: {b.qty} {crop}</div>
-                <div style={{ fontSize: 10, color: C.mut }}>📍 {b.dist} away</div>
+                <div style={{ fontSize: 10, color: C.mut, display:"flex", alignItems:"center", gap:3 }}><MapPin size={9} color={C.mut} /> {b.dist} away</div>
               </div>
               <div style={{ textAlign: "right", flexShrink: 0 }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: C.txt }}>₹{b.offer}<span style={{ fontSize: 10, color: C.mut }}>/kg</span></div>
@@ -650,10 +650,10 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
             <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 10 }}>
               {[...currentData.mandis].sort((a, b) => b.price - a.price).map((m, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 12, background: i === 0 ? C.tint : C.surface, border: i === 0 ? `2px solid ${C.p3}` : `1px solid ${C.brd}` }}>
-                  {i === 0 && <div style={{ fontSize: 16 }}>🏆</div>}
+                  {i === 0 && <Trophy size={16} color="#F59E0B" />}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 13, fontWeight: 800, color: C.txt }}>{m.name}</div>
-                    <div style={{ fontSize: 11, color: C.mut }}>📍 {m.city} · Updated {m.updated}</div>
+                    <div style={{ fontSize: 11, color: C.mut, display:"flex", alignItems:"center", gap:3 }}><MapPin size={10} color={C.mut} /> {m.city} · Updated {m.updated}</div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: 20, fontWeight: 900, color: i === 0 ? C.p2 : C.txt }}>₹{m.price}<span style={{ fontSize: 11, color: C.mut }}>/kg</span></div>
@@ -681,8 +681,8 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
               {(buyerModal === "all" ? currentData.buyers : [buyerModal]).map((b, i) => (
                 <div key={i} style={{ borderRadius: 14, border: `1px solid ${C.brd}`, background: C.surface, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: `${b.color || C.p3}10` }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 12, background: `${b.color || C.p3}20`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>
-                      {b.type === "Retailer" ? "🏪" : b.type === "Exporter" ? "🚢" : b.type === "Restaurant" ? "🍽" : "🏢"}
+                    <div style={{ width: 44, height: 44, borderRadius: 12, background: `${b.color || C.p3}20`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {b.type === "Retailer" ? <Store size={22} color={b.color||C.p2} /> : b.type === "Exporter" ? <Ship size={22} color={b.color||C.p2} /> : b.type === "Restaurant" ? <UtensilsCrossed size={22} color={b.color||C.p2} /> : <Building2 size={22} color={b.color||C.p2} />}
                     </div>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: 14, fontWeight: 800, color: C.txt }}>{b.name}</div>
@@ -692,15 +692,15 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
                   </div>
                   <div style={{ padding: "12px 16px", display: "flex", gap: 10 }}>
                     <div style={{ flex: 1, fontSize: 11, color: C.txt2 }}>
-                      <div>📦 Needs: <strong>{b.qty} of {crop}</strong></div>
-                      <div style={{ marginTop: 4 }}>📍 Distance: <strong>{b.dist}</strong></div>
+                      <div style={{ display:"flex", alignItems:"center", gap:4 }}><Package size={11} color={C.mut} /> Needs: <strong>{b.qty} of {crop}</strong></div>
+                      <div style={{ marginTop: 4, display:"flex", alignItems:"center", gap:4 }}><MapPin size={10} color={C.mut} /> Distance: <strong>{b.dist}</strong></div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       <a href="tel:+919999999999" style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: C.p2, color: "white", fontSize: 11, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 4, justifyContent: "center" }}>
-                        📞 Call
+                        <Phone size={12} /> Call
                       </a>
                       <a href={`https://wa.me/?text=${encodeURIComponent(`Hi, I have ${qtyKg ? `${qtyKg} kg` : b.qty} of ${crop} available at ₹${b.offer}/kg. Interested?`)}`} target="_blank" rel="noreferrer" style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 11, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 4, justifyContent: "center" }}>
-                        💬 WhatsApp
+                        <MessageSquare size={12} /> WhatsApp
                       </a>
                     </div>
                   </div>
@@ -713,7 +713,7 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
 
       {/* ── AI Selling Tip ─────────────────────────────────── */}
       <div style={{ margin: "0 14px 8px", borderRadius: 16, background: "#FFFBF0", border: "1px solid #FFE0B2", padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
-        <div style={{ fontSize: 28, flexShrink: 0 }}>🤖</div>
+        <div style={{ flexShrink: 0, width:36, height:36, borderRadius:10, background:C.surface, display:"flex", alignItems:"center", justifyContent:"center", boxShadow:C.shadow }}><Bot size={22} color={C.amber} /></div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 11, color: C.amber, fontWeight: 700, marginBottom: 3 }}>✦ AI Selling Tip</div>
           <div style={{ fontSize: 12, color: C.txt2, lineHeight: 1.5 }}>
@@ -738,7 +738,7 @@ Use real APMC/mandi names that actually exist near ${city}. Base prices on curre
           disabled={loading}
           style={{ flexShrink: 0, padding: "7px 12px", borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 10, fontWeight: 600, cursor: "pointer", opacity: loading ? 0.5 : 1 }}
         >
-          🔊 Listen
+          <Volume2 size={12} /> Listen
         </button>
       </div>
     </div>

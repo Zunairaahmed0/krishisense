@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { PhoneOff, Mic, MicOff, Volume2, VolumeX } from "lucide-react";
+import { PhoneOff, Mic, MicOff, Volume2, VolumeX, Leaf, MapPin } from "lucide-react";
 import { C } from "../../constants/theme";
 import { AudioRecorder } from "../../lib/audioRecorder";
 import { transcribeWithGroq, getLangFromState, DEFAULT_LANG } from "../../lib/groqWhisper";
@@ -304,12 +304,12 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
       {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div style={{ padding: "52px 20px 14px", flexShrink: 0 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 6 }}>
-          🌿 KrishiSense Expert
+          <Leaf size={16} color="#22A05D" style={{ marginRight: 6, verticalAlign: "middle" }} />KrishiSense Expert
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
           {loc?.name && (
-            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.60)", fontWeight: 600 }}>
-              📍 {loc.name}
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.60)", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
+              <MapPin size={10} /> {loc.name}
             </span>
           )}
           <span style={{ color: "rgba(255,255,255,0.30)" }}>·</span>
@@ -363,7 +363,7 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
         }}>
           {botImg
             ? <img src={botImg} alt="AI" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-            : <span style={{ fontSize: 38 }}>🌿</span>}
+            : <Leaf size={38} color="#22A05D" />}
         </div>
       </div>
 
@@ -420,7 +420,7 @@ export default function ExpertCallPanel({ onClose, loc, weather, botImg }) {
               }}>
                 {botImg
                   ? <img src={botImg} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-                  : <span style={{ fontSize: 12 }}>🌿</span>}
+                  : <Leaf size={12} color="#22A05D" />}
               </div>
             )}
             <div style={{

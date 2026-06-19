@@ -1,4 +1,5 @@
 import React from "react";
+import { Leaf } from "lucide-react";
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -31,7 +32,7 @@ export default class ErrorBoundary extends React.Component {
             cursor: "pointer",
           }}
         >
-          <div style={{ fontSize: 40 }}>🌿</div>
+          <Leaf size={40} color="#22A05D" />
           <div style={{ fontSize: 16, fontWeight: 700, color: "#123C2C" }}>
             Something went wrong.
           </div>

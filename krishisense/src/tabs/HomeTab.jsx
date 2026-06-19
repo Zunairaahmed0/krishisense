@@ -1,4 +1,4 @@
-import { CheckCircle, AlertTriangle, Info, ChevronRight, Satellite, Microscope, TrendingUp, Landmark } from "lucide-react";
+import { CheckCircle, AlertTriangle, Info, ChevronRight, Satellite, Microscope, TrendingUp, Landmark, MapPin, Bot, Volume2 } from "lucide-react";
 import { C } from "../constants/theme";
 import { wx, PRICES } from "../constants/data";
 import Badge from "../components/ui/Badge";
@@ -352,7 +352,7 @@ export default function HomeTab({
               overflow: "hidden",
             }}
           >
-            <span style={{ flexShrink: 0 }}>📍</span>
+            <MapPin size={13} color={C.p2} style={{ flexShrink: 0 }} />
             <span style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {loc
                 ? `${loc.name}, ${loc.state}${loc.country ? `, ${loc.country}` : ""}`
@@ -878,7 +878,7 @@ export default function HomeTab({
             style={{ width: 44, height: 44, objectFit: "contain" }}
           />
         ) : (
-          <div style={{ fontSize: 32, flexShrink: 0 }}>🤖</div>
+          <div style={{ width:44, height:44, borderRadius:12, background:"rgba(255,255,255,0.15)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Bot size={24} color="white" /></div>
         )}
         <div style={{ flex: 1 }}>
           <div
@@ -916,7 +916,7 @@ export default function HomeTab({
             backdropFilter: "blur(8px)",
           }}
         >
-          🎤 Listen
+          <Volume2 size={13} style={{ marginRight:4 }} />Listen
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ChevronDown, ChevronUp, Phone, CheckCircle, Circle } from "lucide-react";
+import { ChevronDown, ChevronUp, Phone, CheckCircle, Circle, Paperclip, ClipboardList, Globe, Clock, Lightbulb, Landmark } from "lucide-react";
 import { C } from "../constants/theme";
 import { GOV_SCHEMES } from "../data/govSchemes";
 import { api } from "../lib/api";
@@ -27,7 +27,7 @@ function DocChecklist({ schemeId, documents }) {
   return (
     <div style={{ marginTop: 12 }}>
       <div style={{ fontSize: 11, fontWeight: 700, color: C.txt2, marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <span>📎 Documents to Collect</span>
+        <span style={{ display:"flex", alignItems:"center", gap:5 }}><Paperclip size={11} /> Documents to Collect</span>
         <span style={{ fontSize: 10, color: doneCount === documents.length ? C.p2 : C.mut, fontWeight: 700 }}>
           {doneCount}/{documents.length} ready
         </span>
@@ -83,7 +83,7 @@ function StepsModal({ scheme, onClose }) {
           </div>
         </div>
 
-        <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 12 }}>📋 Step-by-Step Application Guide</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 12, display:"flex", alignItems:"center", gap:6 }}><ClipboardList size={13} /> Step-by-Step Application Guide</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {scheme.howToApply.map((step, i) => (
             <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -99,7 +99,7 @@ function StepsModal({ scheme, onClose }) {
         </div>
 
         <div style={{ marginTop: 20, padding: "12px 14px", borderRadius: 12, background: "#FFF8E1", border: "1px solid #FFE082" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#E65100", marginBottom: 4 }}>🌐 Official Website</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#E65100", marginBottom: 4, display:"flex", alignItems:"center", gap:5 }}><Globe size={11} color="#E65100" /> Official Website</div>
           <a
             href={`https://${scheme.website}`}
             target="_blank"
@@ -189,7 +189,7 @@ function SchemeCard({ scheme, isApplied, onToggleApplied }) {
             <p style={{ fontSize: 12, color: C.txt2, lineHeight: 1.6, margin: "0 0 12px" }}>{scheme.description}</p>
 
             {/* Eligibility */}
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.txt2, marginBottom: 6 }}>✅ Who Can Apply</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.txt2, marginBottom: 6, display:"flex", alignItems:"center", gap:5 }}><CheckCircle size={12} color={C.p2} /> Who Can Apply</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
               {scheme.eligibility.map((e, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 7, fontSize: 11, color: C.txt2, lineHeight: 1.5 }}>
@@ -201,7 +201,7 @@ function SchemeCard({ scheme, isApplied, onToggleApplied }) {
 
             {/* Deadline */}
             <div style={{ padding: "8px 12px", borderRadius: 10, background: "#FFFDE7", border: "1px solid #FFF176", marginBottom: 12, fontSize: 11, color: "#F57F17" }}>
-              ⏰ <strong>Deadline:</strong> {scheme.deadline}
+              <Clock size={12} style={{ marginRight:4, verticalAlign:"middle" }} /><strong>Deadline:</strong> {scheme.deadline}
             </div>
 
             {/* Doc checklist */}
@@ -227,7 +227,7 @@ function SchemeCard({ scheme, isApplied, onToggleApplied }) {
                   background: scheme.color, color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer",
                 }}
               >
-                📋 How to Apply
+                <ClipboardList size={12} style={{ marginRight:4, verticalAlign:"middle" }} />How to Apply
               </button>
               <button
                 onClick={() => onToggleApplied(scheme.id)}
@@ -343,7 +343,7 @@ export default function SchemesTab({ user }) {
 
       {/* ── Tips Banner ─────────────────────────────────────── */}
       <div style={{ margin: "8px 14px 14px", padding: "10px 14px", borderRadius: 12, background: "#FFF8E1", border: "1px solid #FFE082", display: "flex", alignItems: "center", gap: 10 }}>
-        <div style={{ fontSize: 18, flexShrink: 0 }}>💡</div>
+        <Lightbulb size={18} color="#E65100" style={{ flexShrink: 0 }} />
         <div style={{ fontSize: 11, color: "#E65100", lineHeight: 1.5 }}>
           Tap any card to expand. Use the document checklist to prepare before visiting the bank or CSC.
         </div>
@@ -363,7 +363,7 @@ export default function SchemesTab({ user }) {
 
       {/* ── Bottom help text ────────────────────────────────── */}
       <div style={{ margin: "8px 14px 20px", padding: "14px 16px", borderRadius: 14, background: C.surface, border: `1px solid ${C.brd}`, textAlign: "center" }}>
-        <div style={{ fontSize: 20, marginBottom: 6 }}>🏛️</div>
+        <Landmark size={20} color={C.p2} style={{ marginBottom: 6 }} />
         <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 4 }}>Need Help Applying?</div>
         <div style={{ fontSize: 11, color: C.mut, lineHeight: 1.6 }}>
           Visit your nearest Common Service Centre (CSC) or Gram Panchayat office. Staff will help you fill forms and upload documents for all central schemes.

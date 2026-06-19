@@ -1,17 +1,17 @@
 import { useState } from "react";
-import { X, Volume2, VolumeX, LogOut, Pencil, Check, XCircle } from "lucide-react";
+import { X, Volume2, VolumeX, LogOut, Pencil, Check, XCircle, Home, Satellite, Leaf, TrendingUp, Landmark, Droplets } from "lucide-react";
 import { C } from "../../constants/theme";
 
 const AVATARS = ["👨‍🌾", "👩‍🌾", "🌾", "🌱", "🧑‍🌾", "🌻"];
 
 export default function MenuDrawer({ user, tab, setTab, lang, setLang, voiceOn, setVoiceOn, onClose, onLogout, onUpdateUser }) {
   const NAV = [
-    { id: "home",    emoji: "🏠", label: "Home Dashboard" },
-    { id: "land",    emoji: "🛰",  label: "LAND Analysis" },
-    { id: "grow",    emoji: "🌿", label: "GROW — Crop Health" },
-    { id: "sell",    emoji: "📈", label: "SELL — Market Prices" },
-    { id: "schemes", emoji: "🏛️", label: "SCHEMES — Govt Benefits" },
-    { id: "sustain", emoji: "💧", label: "SUSTAIN — Eco Farming" },
+    { id: "home",    Icon: Home,      label: "Home Dashboard" },
+    { id: "land",    Icon: Satellite, label: "LAND Analysis" },
+    { id: "grow",    Icon: Leaf,      label: "GROW — Crop Health" },
+    { id: "sell",    Icon: TrendingUp,label: "SELL — Market Prices" },
+    { id: "schemes", Icon: Landmark,  label: "SCHEMES — Govt Benefits" },
+    { id: "sustain", Icon: Droplets,  label: "SUSTAIN — Eco Farming" },
   ];
 
   const [editing,   setEditing]   = useState(false);
@@ -120,7 +120,7 @@ export default function MenuDrawer({ user, tab, setTab, lang, setLang, voiceOn, 
               style={{ width:"100%",display:"flex",alignItems:"center",gap:12,padding:"11px 12px",borderRadius:12,
                 border:"none",background:tab===n.id?C.tint:"transparent",color:tab===n.id?C.p2:C.txt,
                 cursor:"pointer",marginBottom:3,textAlign:"left",fontSize:13,fontWeight:tab===n.id?800:600 }}>
-              <span style={{ fontSize:18 }}>{n.emoji}</span>
+              <n.Icon size={18} color={tab===n.id ? C.p2 : C.mut} />
               {n.label}
             </button>
           ))}
@@ -157,7 +157,7 @@ export default function MenuDrawer({ user, tab, setTab, lang, setLang, voiceOn, 
 
           {/* About */}
           <div style={{ padding:"12px",borderRadius:12,border:`1px solid ${C.brd}`,background:C.tint }}>
-            <div style={{ fontSize:11,fontWeight:800,color:C.p2,marginBottom:5 }}>🌿 About KrishiSense</div>
+            <div style={{ fontSize:11,fontWeight:800,color:C.p2,marginBottom:5,display:"flex",alignItems:"center",gap:5 }}><Leaf size={12} color={C.p2} /> About KrishiSense</div>
             <div style={{ fontSize:10,color:C.mut,lineHeight:1.55 }}>AI-powered farming intelligence for Indian farmers. Real-time soil analysis, crop health monitoring, and live market intelligence.</div>
           </div>
         </div>

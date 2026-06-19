@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { RefreshCw, CheckCircle, Loader2, ChevronRight } from "lucide-react";
+import { RefreshCw, CheckCircle, Loader2, ChevronRight, MapPin, Camera, Volume2, Save, ScrollText, Bot, BarChart2, ClipboardList } from "lucide-react";
 import PortfolioOptimizer from "../components/ui/PortfolioOptimizer";
 import { C } from "../constants/theme";
 import { askAI } from "../lib/ai";
@@ -582,7 +582,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
         }}
         title="Click to search or edit location"
       >
-        <div style={{ width: 40, height: 40, borderRadius: 12, background: C.tint, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>📍</div>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: C.tint, display: "flex", alignItems: "center", justifyContent: "center" }}><MapPin size={20} color={C.p2} /></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: C.txt, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {loc ? `${loc.name}, ${loc.state}${loc.country ? `, ${loc.country}` : ""}` : locError || "Detecting current location..."}
@@ -628,8 +628,8 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
             <div style={{ position: "absolute", bottom: 16, left: 16, right: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
               <div>
                 <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files[0]; if(f) setImgPrev(URL.createObjectURL(f)); }} />
-                <button onClick={() => fileRef.current?.click()} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", color: "white", fontSize: 11, cursor: "pointer" }}>
-                  📷 Add soil photo +12%
+                <button onClick={() => fileRef.current?.click()} style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.15)", color: "white", fontSize: 11, cursor: "pointer", display:"flex", alignItems:"center", gap:4 }}>
+                  <Camera size={11} /> Add soil photo +12%
                 </button>
                 {imgPrev && <img src={imgPrev} alt="Soil preview" style={{ width: 42, height: 42, objectFit: "cover", borderRadius: 10, border: "1px solid rgba(255,255,255,0.55)", marginLeft: 8, verticalAlign: "middle" }} />}
               </div>
@@ -706,7 +706,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                       transition: "all 0.2s ease"
                     }}
                   >
-                    📊 Crop NDVI Map
+                    <BarChart2 size={10} style={{ marginRight:4, verticalAlign:"middle" }} />Crop NDVI Map
                   </button>
                 </div>
               )}
@@ -1180,7 +1180,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                 }}
                 style={{ flex: 1, padding: "12px", borderRadius: 12, border: `1px solid ${C.brd}`, background: C.surface, color: C.primary, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
               >
-                🔊 Listen
+                <Volume2 size={13} /> Listen
               </button>
               <button
                 onClick={handleShareSoilReport}
@@ -1208,7 +1208,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                   transition: "all 0.2s ease"
                 }}
               >
-                {saving ? "⏳ Saving..." : isSaved ? "✓ Saved to History" : "💾 Save to History"}
+                {saving ? "Saving..." : isSaved ? "✓ Saved to History" : <><Save size={13} style={{ marginRight:4 }} />Save to History</>}
               </button>
             </div>
             <button
@@ -1221,14 +1221,14 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
               }}
             >
-              📊 Optimise My Portfolio
+              <BarChart2 size={14} style={{ marginRight:6 }} />Optimise My Portfolio
             </button>
           </Card>
 
           {/* Action plan */}
           <div style={{ margin: "0 14px 16px" }}>
             <Card>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.txt, marginBottom: 12 }}>📋 Action Plan</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.txt, marginBottom: 12, display:"flex", alignItems:"center", gap:5 }}><ClipboardList size={13} color={C.p2} /> Action Plan</div>
               {rec.actions?.map((a, i) => (
                 <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
                   <div style={{ width: 24, height: 24, borderRadius: "50%", background: C.tint, border: `1px solid ${C.brd}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1242,7 +1242,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
 
           <div style={{ margin: "0 14px 8px" }}>
             <button onClick={reset} style={{ width: "100%", padding: 12, borderRadius: 12, border: `1px solid ${C.brd}`, background: C.surface, color: C.mut, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-              🔄 Scan New Land
+              <RefreshCw size={14} style={{ marginRight:5 }} />Scan New Land
             </button>
           </div>
         </>
@@ -1251,7 +1251,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
       {/* ── Soil History Section ── */}
       <div id="soil-history-section" style={{ borderTop: `1px solid ${C.brd}`, marginTop: 24, paddingTop: 20, paddingLeft: 18, paddingRight: 18 }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.txt, marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-          <span>📜</span> Saved Soil Scan History
+          <ScrollText size={16} color={C.txt} /> Saved Soil Scan History
         </div>
 
         {loadingScans ? (
@@ -1481,7 +1481,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
               </Card>
 
               {/* Action plan */}
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.txt, marginBottom: 8 }}>📋 Action Plan</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.txt, marginBottom: 8, display:"flex", alignItems:"center", gap:5 }}><ClipboardList size={13} color={C.p2} /> Action Plan</div>
               <Card style={{ marginBottom: 16 }}>
                 {selectedScan.data?.rec?.actions?.map((a, i) => (
                   <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
@@ -1523,7 +1523,7 @@ Return ONLY valid JSON (do not include markdown wrappers or extra text):
                     gap: 6
                   }}
                 >
-                  🔊 Listen
+                  <Volume2 size={13} /> Listen
                 </button>
                 <button
                   onClick={() => handleDeleteScan(selectedScan.id)}

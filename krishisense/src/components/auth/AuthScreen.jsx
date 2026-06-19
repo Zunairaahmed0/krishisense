@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Globe, Leaf, Smartphone, KeyRound, MessageSquare, ArrowLeft, RefreshCw, AlertTriangle, Check } from "lucide-react";
 import { C } from "../../constants/theme";
 import { api } from "../../lib/api";
 import { speak } from "../../lib/speech";
@@ -190,7 +191,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
 
   const errorBox = error ? (
     <div style={{ background: "#FFEBEE", border: "1px solid #FFCDD2", color: C.red, padding: "10px 14px", borderRadius: 12, fontSize: 11, fontWeight: 600, marginBottom: 16, textAlign: "left", display: "flex", alignItems: "center", gap: 6 }}>
-      <span>⚠️</span><span>{error}</span>
+      <AlertTriangle size={13} color={C.red} /><span>{error}</span>
     </div>
   ) : null;
 
@@ -213,7 +214,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
 
       {/* Language selector */}
       <div style={{ position: "absolute", top: 16, right: 16, zIndex: 10, display: "flex", gap: 6, alignItems: "center" }}>
-        <span style={{ fontSize: 13, color: C.mut, fontWeight: 600 }}>🌐</span>
+        <Globe size={13} color={C.mut} />
         <select value={lang} onChange={e => setLang(e.target.value)} style={{ padding: "4px 8px", borderRadius: 8, border: `1px solid ${C.brd}`, background: C.surface, color: C.p2, fontSize: 11, fontWeight: 800, cursor: "pointer", outline: "none" }}>
           <option value="en">English</option>
           <option value="hi">हिंदी</option>
@@ -237,7 +238,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
         {/* Logo */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 24 }}>
           <div style={{ width: 42, height: 42, borderRadius: 12, background: `linear-gradient(135deg, ${C.p2}, ${C.p4})`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 4px 14px ${C.gGlow}` }}>
-            <span style={{ fontSize: 22 }}>🌿</span>
+            <Leaf size={22} color="white" />
           </div>
           <div style={{ textAlign: "left" }}>
             <h1 style={{ fontSize: 24, fontWeight: 900, color: C.primary, letterSpacing: -0.6 }}>KrishiSense</h1>
@@ -263,7 +264,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                 onMouseLeave={e => e.currentTarget.style.background = "rgba(14,165,233,0.06)"}
               >
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${C.sky}, ${C.blue})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 20 }}>📱</span>
+                  <Smartphone size={20} color="white" />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.primary }}>
@@ -284,7 +285,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                 onMouseLeave={e => e.currentTarget.style.background = "rgba(22,134,75,0.06)"}
               >
                 <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${C.primary}, ${C.p3})`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 20 }}>🔑</span>
+                  <KeyRound size={20} color="white" />
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: C.primary }}>
@@ -338,7 +339,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                     style={{ padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${C.primary}, ${C.p3})`, color: "white", fontSize: 15, fontWeight: 800, cursor: "pointer", boxShadow: `0 8px 24px rgba(22,134,75,0.18)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
                   >
                     <span>{lang === "hi" ? "KrishiSense में प्रवेश करें" : lang === "mr" ? "KrishiSense मध्ये प्रवेश करा" : "Enter KrishiSense"}</span>
-                    <span>🌿</span>
+                    <Leaf size={16} color="white" />
                   </button>
                 </form>
               </div>
@@ -376,19 +377,19 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                   </div>
 
                   <button type="submit" disabled={loading} style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${C.primary}, ${C.p3})`, color: "white", fontSize: 14, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: `0 8px 24px rgba(22,134,75,0.18)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 16 }}>
-                    {loading ? <Spinner size={18} color="white" /> : <><span>{lang === "hi" ? "कोड सत्यापित करें" : "Verify Code"}</span><span>✔️</span></>}
+                    {loading ? <Spinner size={18} color="white" /> : <><span>{lang === "hi" ? "कोड सत्यापित करें" : "Verify Code"}</span><Check size={16} color="white" /></>}
                   </button>
                 </form>
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <button onClick={() => { setIsOtpFlow(false); setOtpDigits(["", "", "", "", "", ""]); setError(""); }} style={{ background: "none", border: "none", color: C.mut, fontSize: 11, fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}>
-                    👈 {lang === "hi" ? "नंबर बदलें" : "Change Number"}
+                    <ArrowLeft size={13} /> {lang === "hi" ? "नंबर बदलें" : "Change Number"}
                   </button>
                   {resendTimer > 0 ? (
                     <span style={{ fontSize: 11, color: C.mut, fontWeight: 600 }}>Resend in <b>{resendTimer}s</b></span>
                   ) : (
                     <button onClick={handleRequestOTP} style={{ background: "none", border: "none", color: C.p2, fontSize: 11, fontWeight: 800, cursor: "pointer", textDecoration: "underline" }}>
-                      🔄 {lang === "hi" ? "दोबारा भेजें" : "Resend Code"}
+                      <RefreshCw size={12} /> {lang === "hi" ? "दोबारा भेजें" : "Resend Code"}
                     </button>
                   )}
                 </div>
@@ -421,7 +422,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
                   </div>
 
                   <button onClick={handleRequestOTP} disabled={loading || identifier.length < 10} style={{ padding: 14, borderRadius: 12, border: "none", background: identifier.length < 10 ? "#ccc" : `linear-gradient(135deg, ${C.sky}, ${C.blue})`, color: "white", fontSize: 14, fontWeight: 800, cursor: loading || identifier.length < 10 ? "not-allowed" : "pointer", boxShadow: identifier.length >= 10 ? `0 8px 24px rgba(14,165,233,0.18)` : "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all 0.2s ease" }}>
-                    {loading ? <Spinner size={18} color="white" /> : <><span>{lang === "hi" ? "OTP भेजें" : lang === "mr" ? "OTP पाठवा" : "Send OTP"}</span><span>💬</span></>}
+                    {loading ? <Spinner size={18} color="white" /> : <><span>{lang === "hi" ? "OTP भेजें" : lang === "mr" ? "OTP पाठवा" : "Send OTP"}</span><MessageSquare size={16} color="white" /></>}
                   </button>
 
                   <button onClick={() => { setAuthMethod(null); setIdentifier(""); setError(""); }} style={{ background: "none", border: "none", color: C.mut, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
@@ -484,7 +485,7 @@ export default function AuthScreen({ onAuthSuccess, voiceOn = true }) {
               </div>
 
               <button type="submit" disabled={loading} style={{ padding: 14, borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${C.primary}, ${C.p3})`, color: "white", fontSize: 14, fontWeight: 800, cursor: loading ? "not-allowed" : "pointer", boxShadow: `0 8px 24px rgba(22,134,75,0.18)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                {loading ? <Spinner size={18} color="white" /> : <><span>{isLogin ? (lang === "hi" ? "सुरक्षित प्रवेश" : "Sign In Securely") : (lang === "hi" ? "खाता बनाएं" : "Register Account")}</span><span>🔑</span></>}
+                {loading ? <Spinner size={18} color="white" /> : <><span>{isLogin ? (lang === "hi" ? "सुरक्षित प्रवेश" : "Sign In Securely") : (lang === "hi" ? "खाता बनाएं" : "Register Account")}</span><KeyRound size={16} color="white" /></>}
               </button>
             </form>
 

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, ChevronRight, Loader2 } from "lucide-react";
+import { X, ChevronRight, Loader2, FileText, Save, BarChart2, Pencil, TrendingUp } from "lucide-react";
 import { C } from "../../constants/theme";
 import { askAI } from "../../lib/ai";
 import { parseJSON } from "../../lib/utils";
@@ -41,7 +41,7 @@ function AllocationBar({ crops, baseColor }) {
 function FarmDataForm({ profile, onChange, onSave, saving }) {
   return (
     <div style={{ padding: "0 18px 20px" }}>
-      <div style={{ fontSize: 14, fontWeight: 800, color: C.txt, marginBottom: 4 }}>📝 Your Farm Details</div>
+      <div style={{ fontSize: 14, fontWeight: 800, color: C.txt, marginBottom: 4, display:"flex", alignItems:"center", gap:6 }}><FileText size={14} color={C.p2} /> Your Farm Details</div>
       <div style={{ fontSize: 11, color: C.mut, marginBottom: 16 }}>
         Enter your farm specifics to get a personalized portfolio. Saved to your account.
       </div>
@@ -132,7 +132,7 @@ function FarmDataForm({ profile, onChange, onSave, saving }) {
             marginTop: 4,
           }}
         >
-          {saving ? <><Loader2 size={15} style={{ animation: "spin .9s linear infinite" }} /> Saving…</> : "💾 Save & Generate Portfolio"}
+          {saving ? <><Loader2 size={15} style={{ animation: "spin .9s linear infinite" }} /> Saving…</> : <><Save size={15} style={{ marginRight:6 }} /> Save & Generate Portfolio</>}
         </button>
       </div>
     </div>
@@ -275,7 +275,7 @@ Return ONLY valid JSON with exactly 3 portfolio objects — conservative, balanc
           <div style={{ width: 36, height: 4, borderRadius: 99, background: C.brd, margin: "0 auto 14px" }} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
-              <div style={{ fontSize: 17, fontWeight: 800, color: C.txt }}>📊 Portfolio Optimizer</div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.txt, display:"flex", alignItems:"center", gap:7 }}><BarChart2 size={17} color={C.p2} /> Portfolio Optimizer</div>
               <div style={{ fontSize: 11, color: C.mut, marginTop: 1 }}>AI crop mix for maximum returns</div>
             </div>
             <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -285,7 +285,7 @@ Return ONLY valid JSON with exactly 3 portfolio objects — conservative, balanc
 
           {/* Tabs */}
           <div style={{ display: "flex", gap: 6, marginTop: 14, marginBottom: 2 }}>
-            {[["portfolios", "📊 Portfolios"], ["form", "✏️ My Farm Data"]].map(([id, label]) => (
+            {[["portfolios", "Portfolios", BarChart2], ["form", "My Farm Data", Pencil]].map(([id, label, Icon]) => (
               <button
                 key={id}
                 onClick={() => { setView(id); if (id === "portfolios" && !portfolios) generatePortfolios(); }}
@@ -294,9 +294,10 @@ Return ONLY valid JSON with exactly 3 portfolio objects — conservative, balanc
                   border: `1px solid ${view === id ? C.primary : C.brd}`,
                   background: view === id ? C.primary : C.surface,
                   color: view === id ? "white" : C.txt2, cursor: "pointer", transition: "all 0.15s",
+                display:"flex", alignItems:"center", justifyContent:"center", gap:5,
                 }}
               >
-                {label}
+                <Icon size={13} />{label}
               </button>
             ))}
           </div>
@@ -392,7 +393,7 @@ Return ONLY valid JSON with exactly 3 portfolio objects — conservative, balanc
 
                   {/* Comparison bar chart */}
                   <div style={{ borderRadius: 14, border: `1px solid ${C.brd}`, background: C.surface, padding: "14px" }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 12 }}>📈 Profit Comparison</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.txt, marginBottom: 12, display:"flex", alignItems:"center", gap:5 }}><TrendingUp size={12} color={C.p2} /> Profit Comparison</div>
                     {portfolios.map((p, i) => {
                       const meta = PORTFOLIO_COLORS[p.type] || PORTFOLIO_COLORS.balanced;
                       const val = allProfits[i];
@@ -416,7 +417,7 @@ Return ONLY valid JSON with exactly 3 portfolio objects — conservative, balanc
                     onClick={() => setView("form")}
                     style={{ width: "100%", marginTop: 12, padding: "11px", borderRadius: 10, border: `1px solid ${C.brd}`, background: C.surface, color: C.txt2, fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                   >
-                    ✏️ Edit My Farm Data <ChevronRight size={14} />
+                    <Pencil size={13} /> Edit My Farm Data <ChevronRight size={14} />
                   </button>
                 </>
               ) : (
