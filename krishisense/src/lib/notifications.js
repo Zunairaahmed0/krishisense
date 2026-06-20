@@ -8,27 +8,30 @@ export const initNotifications = async (firebaseApp, userId, loc) => {
   if (!("Notification" in window))     return { supported: false };
   if (!("serviceWorker" in navigator)) return { supported: false };
 
-  // Step 1 — register service worker and wait for it to become active
+  // Step 1 — force-unregister any stale service workers, then register fresh
   let registration;
   try {
+    // Unregister ALL existing SW registrations so stale versions don't block getToken()
+    const existing = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(existing.map(r => r.unregister()));
+
     registration = await navigator.serviceWorker.register(
       "/firebase-messaging-sw.js",
       { scope: "/" }
     );
     // Wait for the SW to be active — getToken() fails if it's still installing
-    if (registration.installing || registration.waiting) {
-      await new Promise((resolve) => {
-        const sw = registration.installing || registration.waiting;
-        sw.addEventListener("statechange", function handler(e) {
-          if (e.target.state === "activated") {
-            sw.removeEventListener("statechange", handler);
-            resolve();
-          }
-        });
-        // Safety timeout after 5 s
-        setTimeout(resolve, 5000);
+    await new Promise((resolve) => {
+      if (registration.active) { resolve(); return; }
+      const sw = registration.installing || registration.waiting;
+      if (!sw) { resolve(); return; }
+      sw.addEventListener("statechange", function handler(e) {
+        if (e.target.state === "activated") {
+          sw.removeEventListener("statechange", handler);
+          resolve();
+        }
       });
-    }
+      setTimeout(resolve, 8000);
+    });
   } catch (e) {
     console.warn("[FCM] SW registration failed:", e.message);
     return { supported: true, granted: false, error: "sw_failed", detail: e.message };
