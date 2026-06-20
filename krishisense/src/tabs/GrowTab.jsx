@@ -231,7 +231,7 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
     setAlertSending(true);
     try {
       const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
-      if (!backendUrl) throw new Error("No backend URL");
+      if (!backendUrl) throw new Error("VITE_BACKEND_URL not set");
       const r = await fetch(`${backendUrl}/api/alerts/broadcast`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -241,11 +241,14 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
           senderUserId: user?.uid || "",
         }),
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Failed");
+      let data;
+      try { data = await r.json(); } catch { data = {}; }
+      if (!r.ok) throw new Error(data.error || `Server ${r.status}`);
       setAlertSent(true);
+      showToast(`✅ Alert sent to ${data.sent ?? "all"} farmers!`);
     } catch (e) {
-      alert("Alert failed: " + e.message);
+      console.error("[broadcast alert]", e);
+      showToast("❌ Alert failed: " + e.message);
     } finally {
       setAlertSending(false);
     }
