@@ -512,15 +512,21 @@ app.post("/api/alerts/broadcast", rateLimit(5, 60_000), async (req, res) => {
     };
 
     let sent = 0;
+    const staleDeletes = [];
     for (const doc of docs) {
       const token = doc.data().token;
-      if (token) {
-        const ok = await sendAlertToUser(token, alert);
-        if (ok) sent++;
+      if (!token) continue;
+      const ok = await sendAlertToUser(token, alert);
+      if (ok) {
+        sent++;
+      } else {
+        // Mark expired/invalid tokens inactive so they don't clog future sends
+        staleDeletes.push(doc.ref.update({ active: false }));
       }
     }
+    await Promise.allSettled(staleDeletes);
 
-    res.json({ sent, total: docs.length, alert });
+    res.json({ sent, total: docs.length, staleRemoved: staleDeletes.length, alert });
   } catch (e) {
     console.error("[broadcast]", e.message);
     res.status(500).json({ error: e.message });
