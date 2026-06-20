@@ -27,6 +27,8 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
   const [kbEntry,      setKbEntry]      = useState(null);
   const [weatherAlert, setWeatherAlert] = useState(false);
   const [analysisStep, setAnalysisStep] = useState("");
+  const [alertSending, setAlertSending] = useState(false);
+  const [alertSent,    setAlertSent]    = useState(false);
   const fileRef = useRef();
   const galleryRef = useRef();
 
@@ -224,6 +226,31 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
     }
   };
 
+  const handleBroadcastAlert = async () => {
+    if (!res?.disease || alertSending || alertSent) return;
+    setAlertSending(true);
+    try {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL?.replace(/\/+$/, "");
+      if (!backendUrl) throw new Error("No backend URL");
+      const r = await fetch(`${backendUrl}/api/alerts/broadcast`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          diseaseName:  res.disease,
+          locName:      loc?.name || "",
+          senderUserId: user?.uid || "",
+        }),
+      });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Failed");
+      setAlertSent(true);
+    } catch (e) {
+      alert("Alert failed: " + e.message);
+    } finally {
+      setAlertSending(false);
+    }
+  };
+
   const reset = () => {
     setPhase("idle");
     setImgPrev(null);
@@ -234,6 +261,8 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
     setKbEntry(null);
     setWeatherAlert(false);
     setAnalysisStep("");
+    setAlertSent(false);
+    setAlertSending(false);
   };
   const sevColor = s => s < 30 ? C.p3 : s < 65 ? C.amber : C.red;
 
@@ -533,6 +562,40 @@ export default function GrowTab({ weather, weatherLoading, voiceOn, lang, botImg
               Share Report →
             </button>
           </div>
+
+          {/* Send Alert to All Farmers — only for diseased scans */}
+          {res.status === "diseased" && (
+            <div style={{ padding: "0 14px 12px" }}>
+              <button
+                onClick={handleBroadcastAlert}
+                disabled={alertSending || alertSent}
+                style={{
+                  width: "100%",
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "none",
+                  background: alertSent ? "#E8F5E9" : alertSending ? "#ccc" : "#D32F2F",
+                  color: alertSent ? C.p2 : "white",
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: alertSending || alertSent ? "default" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: alertSent || alertSending ? "none" : "0 3px 12px rgba(211,47,47,0.35)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                {alertSent ? "✅ Alert Sent to All Farmers!" : alertSending ? "Sending Alert..." : `🚨 Send Disease Alert to All Farmers`}
+              </button>
+              {!alertSent && !alertSending && (
+                <div style={{ fontSize: 10, color: C.mut, textAlign: "center", marginTop: 5 }}>
+                  Notifies all registered farmers about {res.disease} risk
+                </div>
+              )}
+            </div>
+          )}
 
           {res.status === "diseased" && (
             <button

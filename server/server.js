@@ -492,6 +492,41 @@ app.post("/api/alerts/demo", async (req, res) => {
   res.json({ sent: ok, alert });
 });
 
+// ── Broadcast alert to ALL registered devices (manual send from app) ──────────
+app.post("/api/alerts/broadcast", rateLimit(5, 60_000), async (req, res) => {
+  const { diseaseName, locName, senderUserId } = req.body;
+  if (!diseaseName) return res.status(400).json({ error: "diseaseName required" });
+  if (!isAdminReady()) return res.status(500).json({ error: "Firebase Admin not initialized" });
+
+  try {
+    const db       = getAdminFirestore();
+    const snapshot = await db.collection("fcmTokens").where("active", "==", true).get();
+    const docs     = snapshot.docs.filter(d => d.data().userId !== senderUserId);
+
+    const alert = {
+      title:     `🚨 ${diseaseName} Alert — Nearby Farm`,
+      body:      `A farmer${locName ? ` in ${locName}` : " near you"} just detected ${diseaseName}. Check your crops now and take preventive action.`,
+      alertType: "broadcast_disease",
+      severity:  "critical",
+      targetUrl: "/?tab=grow",
+    };
+
+    let sent = 0;
+    for (const doc of docs) {
+      const token = doc.data().token;
+      if (token) {
+        const ok = await sendAlertToUser(token, alert);
+        if (ok) sent++;
+      }
+    }
+
+    res.json({ sent, total: docs.length, alert });
+  } catch (e) {
+    console.error("[broadcast]", e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── Mandi Prices (data.gov.in / AGMARKNET) ────────────────────────────────────
 app.get("/api/market/prices", rateLimit(30, 60_000), async (req, res) => {
   const { commodity = "Onion", state = "Maharashtra", district, market, lat, lon } = req.query;
